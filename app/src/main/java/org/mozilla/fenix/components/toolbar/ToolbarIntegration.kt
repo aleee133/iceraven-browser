@@ -5,11 +5,8 @@
 package org.mozilla.fenix.components.toolbar
 
 import android.content.Context
-import android.content.res.Configuration
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import mozilla.components.browser.domains.autocomplete.DomainAutocompleteProvider
 import mozilla.components.browser.state.selector.normalTabs
 import mozilla.components.browser.state.selector.privateTabs
@@ -25,11 +22,11 @@ import mozilla.components.feature.toolbar.ToolbarPresenter
 import mozilla.components.support.base.feature.LifecycleAwareFeature
 import mozilla.components.support.ktx.android.view.hideKeyboard
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.toolbar.interactor.BrowserToolbarInteractor
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.theme.ThemeManager
 
-@ExperimentalCoroutinesApi
 abstract class ToolbarIntegration(
     context: Context,
     toolbar: BrowserToolbar,
@@ -78,7 +75,6 @@ abstract class ToolbarIntegration(
     }
 }
 
-@ExperimentalCoroutinesApi
 class DefaultToolbarIntegration(
     context: Context,
     toolbar: BrowserToolbar,
@@ -88,7 +84,7 @@ class DefaultToolbarIntegration(
     lifecycleOwner: LifecycleOwner,
     sessionId: String? = null,
     isPrivate: Boolean,
-    interactor: BrowserToolbarViewInteractor,
+    interactor: BrowserToolbarInteractor,
     engine: Engine
 ) : ToolbarIntegration(
     context = context,
@@ -103,49 +99,10 @@ class DefaultToolbarIntegration(
         toolbar.display.menuBuilder = toolbarMenu.menuBuilder
         toolbar.private = isPrivate
 
-        val drawable =
-            if (isPrivate) AppCompatResources.getDrawable(
-                context,
-                R.drawable.shield_dark
-            ) else when (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) {
-                Configuration.UI_MODE_NIGHT_UNDEFINED, // We assume light here per Android doc's recommendation
-                Configuration.UI_MODE_NIGHT_NO -> {
-                    AppCompatResources.getDrawable(context, R.drawable.shield_light)
-                }
-                Configuration.UI_MODE_NIGHT_YES -> {
-                    AppCompatResources.getDrawable(context, R.drawable.shield_dark)
-                }
-                else -> AppCompatResources.getDrawable(context, R.drawable.shield_light)
-            }
-
-        toolbar.display.indicators =
-            if (context.settings().shouldUseTrackingProtection) {
-                listOf(
-                    DisplayToolbar.Indicators.TRACKING_PROTECTION,
-                    DisplayToolbar.Indicators.SECURITY,
-                    DisplayToolbar.Indicators.EMPTY,
-                    DisplayToolbar.Indicators.HIGHLIGHT
-                )
-            } else {
-                listOf(
-                    DisplayToolbar.Indicators.SECURITY,
-                    DisplayToolbar.Indicators.EMPTY,
-                    DisplayToolbar.Indicators.HIGHLIGHT
-                )
-            }
-            context.settings().shouldUseTrackingProtection
-
-        toolbar.display.icons = toolbar.display.icons.copy(
-            emptyIcon = null,
-            trackingProtectionTrackersBlocked = drawable!!,
-            trackingProtectionNothingBlocked = AppCompatResources.getDrawable(
-                context,
-                R.drawable.ic_tracking_protection_enabled
-            )!!,
-            trackingProtectionException = AppCompatResources.getDrawable(
-                context,
-                R.drawable.ic_tracking_protection_disabled
-            )!!
+        toolbar.display.indicators = listOf(
+            DisplayToolbar.Indicators.SECURITY,
+            DisplayToolbar.Indicators.EMPTY,
+            DisplayToolbar.Indicators.HIGHLIGHT
         )
 
         val tabCounterMenu = FenixTabCounterMenu(
@@ -153,12 +110,11 @@ class DefaultToolbarIntegration(
             onItemTapped = {
                 interactor.onTabCounterMenuItemTapped(it)
             },
-            iconColor =
-                if (isPrivate) {
-                    ContextCompat.getColor(context, R.color.primary_text_private_theme)
-                } else {
-                    null
-                }
+            iconColor = if (isPrivate) {
+                ContextCompat.getColor(context, R.color.primary_text_private_theme)
+            } else {
+                null
+            }
         ).also {
             it.updateMenu(context.settings().toolbarPosition)
         }

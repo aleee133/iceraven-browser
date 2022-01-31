@@ -9,7 +9,6 @@ import androidx.navigation.NavController
 import androidx.preference.Preference
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestCoroutineDispatcher
 import mozilla.components.concept.storage.CreditCard
 import mozilla.components.support.test.robolectric.testContext
@@ -21,11 +20,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.getPreferenceKey
-import org.mozilla.fenix.ext.navigateBlockingForAsyncNavGraph
 import org.mozilla.fenix.helpers.FenixRobolectricTestRunner
 import org.robolectric.Robolectric
 
-@ExperimentalCoroutinesApi
 @RunWith(FenixRobolectricTestRunner::class)
 class CreditCardsSettingFragmentTest {
 
@@ -92,6 +89,6 @@ class CreditCardsSettingFragmentTest {
 
         manageCardsPreference?.performClick()
 
-        verify { navController.navigateBlockingForAsyncNavGraph(directions) }
+        verify { navController.navigate(directions) }
     }
 }

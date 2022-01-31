@@ -4,6 +4,10 @@
 
 package org.mozilla.fenix
 
+import android.content.Context
+import mozilla.components.support.locale.LocaleManager
+import mozilla.components.support.locale.LocaleManager.getSystemDefault
+
 /**
  * A single source for setting feature flags that are mostly based on build type.
  */
@@ -15,19 +19,9 @@ object FeatureFlags {
     const val pullToRefreshEnabled = true
 
     /**
-     * Enables the Nimbus experiments library.
-     */
-    const val nimbusExperiments = false
-
-    /**
      * Enables the Addresses autofill feature.
      */
     const val addressesFeature = true
-
-    /**
-     * Enables the Credit Cards autofill feature.
-     */
-    const val creditCardsFeature = true
 
     /**
      * Enables WebAuthn support.
@@ -35,12 +29,66 @@ object FeatureFlags {
     const val webAuthFeature = true
 
     /**
-     * Shows new three-dot toolbar menu design.
+     * Enables the Home button in the browser toolbar to navigate back to the home screen.
      */
-    const val toolbarMenuFeature = true
+    const val showHomeButtonFeature = true
 
     /**
-     * Enables the tabs tray re-write with Synced Tabs.
+     * Enables the Start On Home feature in the settings page.
      */
-    const val tabsTrayRewrite = true
+    const val showStartOnHomeSettings = true
+
+    /**
+     * Enables the "recent" tabs feature in the home screen.
+     */
+    const val showRecentTabsFeature = true
+
+    /**
+     * Enables UI features based on history metadata.
+     */
+    const val historyMetadataUIFeature = true
+
+    /**
+     * Enables the recently saved bookmarks feature in the home screen.
+     */
+    const val recentBookmarksFeature = true
+
+    /**
+     * Identifies and separates the tabs list with a secondary section containing least used tabs.
+     */
+    const val inactiveTabs = true
+
+    /**
+     * Enables showing the home screen behind the search dialog
+     */
+    const val showHomeBehindSearch = true
+
+    /**
+     * Enables customizing the home screen
+     */
+    const val customizeHome = true
+
+    /**
+     * Identifies and separates the tabs list with a group containing search term tabs.
+     */
+    val tabGroupFeature = Config.channel.isNightlyOrDebug
+
+    /**
+     * Enables showing search groupings in the History.
+     */
+    const val showHistorySearchGroups = true
+
+    /**
+     * Show Pocket recommended stories on home.
+     */
+    fun isPocketRecommendationsFeatureEnabled(context: Context): Boolean {
+        val langTag = LocaleManager.getCurrentLocale(context)
+            ?.toLanguageTag() ?: getSystemDefault().toLanguageTag()
+        return listOf("en-US", "en-CA").contains(langTag)
+    }
+
+    /**
+     * Enables showing the homescreen onboarding card.
+     */
+    const val showHomeOnboarding = false
 }

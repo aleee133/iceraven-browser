@@ -11,10 +11,8 @@ import android.view.View
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.isVisible
 import androidx.navigation.fragment.navArgs
-import kotlinx.android.synthetic.main.component_browser_top_toolbar.*
-import kotlinx.android.synthetic.main.fragment_browser.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import mozilla.components.browser.state.state.SessionState
+import mozilla.components.browser.toolbar.BrowserToolbar
 import mozilla.components.concept.engine.manifest.WebAppManifestParser
 import mozilla.components.concept.engine.manifest.getOrNull
 import mozilla.components.feature.contextmenu.ContextMenuCandidate
@@ -23,7 +21,7 @@ import mozilla.components.feature.pwa.feature.ManifestUpdateFeature
 import mozilla.components.feature.pwa.feature.WebAppActivityFeature
 import mozilla.components.feature.pwa.feature.WebAppHideToolbarFeature
 import mozilla.components.feature.pwa.feature.WebAppSiteControlsFeature
-import mozilla.components.feature.sitepermissions.SitePermissions
+import mozilla.components.concept.engine.permission.SitePermissions
 import mozilla.components.support.base.feature.UserInteractionHandler
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import mozilla.components.support.ktx.android.arch.lifecycle.addObservers
@@ -36,12 +34,12 @@ import org.mozilla.fenix.components.metrics.Event
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.requireComponents
+import org.mozilla.fenix.ext.runIfFragmentIsAttached
 import org.mozilla.fenix.ext.settings
 
 /**
  * Fragment used for browsing the web within external apps.
  */
-@ExperimentalCoroutinesApi
 class ExternalAppBrowserFragment : BaseBrowserFragment(), UserInteractionHandler {
 
     private val args by navArgs<ExternalAppBrowserFragmentArgs>()
@@ -57,6 +55,8 @@ class ExternalAppBrowserFragment : BaseBrowserFragment(), UserInteractionHandler
         val customTabSessionId = customTabSessionId ?: return
         val activity = requireActivity()
         val components = activity.components
+        val toolbar = binding.root.findViewById<BrowserToolbar>(R.id.toolbar)
+
         val manifest = args.webAppManifest?.let { json -> WebAppManifestParser().parse(json).getOrNull() }
 
         customTabsIntegration.set(
@@ -66,7 +66,7 @@ class ExternalAppBrowserFragment : BaseBrowserFragment(), UserInteractionHandler
                 toolbar = toolbar,
                 sessionId = customTabSessionId,
                 activity = activity,
-                onItemTapped = { browserInteractor.onBrowserToolbarMenuItemTapped(it) },
+                onItemTapped = { browserToolbarInteractor.onBrowserToolbarMenuItemTapped(it) },
                 isPrivate = tab.content.private,
                 shouldReverseItems = !activity.settings().shouldUseBottomToolbar
             ),
@@ -104,9 +104,9 @@ class ExternalAppBrowserFragment : BaseBrowserFragment(), UserInteractionHandler
                 browserToolbarView.view.isVisible = toolbarVisible
                 webAppToolbarShouldBeVisible = toolbarVisible
                 if (!toolbarVisible) {
-                    engineView.setDynamicToolbarMaxHeight(0)
+                    binding.engineView.setDynamicToolbarMaxHeight(0)
                     val browserEngine =
-                        swipeRefresh.layoutParams as CoordinatorLayout.LayoutParams
+                        binding.swipeRefresh.layoutParams as CoordinatorLayout.LayoutParams
                     browserEngine.bottomMargin = 0
                 }
             },
@@ -177,32 +177,22 @@ class ExternalAppBrowserFragment : BaseBrowserFragment(), UserInteractionHandler
     }
 
     override fun navToQuickSettingsSheet(tab: SessionState, sitePermissions: SitePermissions?) {
-        val directions = ExternalAppBrowserFragmentDirections
-            .actionGlobalQuickSettingsSheetDialogFragment(
-                sessionId = tab.id,
-                url = tab.content.url,
-                title = tab.content.title,
-                isSecured = tab.content.securityInfo.secure,
-                sitePermissions = sitePermissions,
-                gravity = getAppropriateLayoutGravity(),
-                certificateName = tab.content.securityInfo.issuer,
-                permissionHighlights = tab.content.permissionHighlights
-            )
-        nav(R.id.externalAppBrowserFragment, directions)
-    }
-
-    override fun navToTrackingProtectionPanel(tab: SessionState) {
         requireComponents.useCases.trackingProtectionUseCases.containsException(tab.id) { contains ->
-            val isEnabled = tab.trackingProtection.enabled && !contains
-            val directions =
-                ExternalAppBrowserFragmentDirections
-                    .actionGlobalTrackingProtectionPanelDialogFragment(
+            runIfFragmentIsAttached {
+                val directions = ExternalAppBrowserFragmentDirections
+                    .actionGlobalQuickSettingsSheetDialogFragment(
                         sessionId = tab.id,
                         url = tab.content.url,
-                        trackingProtectionEnabled = isEnabled,
-                        gravity = getAppropriateLayoutGravity()
+                        title = tab.content.title,
+                        isSecured = tab.content.securityInfo.secure,
+                        sitePermissions = sitePermissions,
+                        gravity = getAppropriateLayoutGravity(),
+                        certificateName = tab.content.securityInfo.issuer,
+                        permissionHighlights = tab.content.permissionHighlights,
+                        isTrackingProtectionEnabled = tab.trackingProtection.enabled && !contains
                     )
-            nav(R.id.externalAppBrowserFragment, directions)
+                nav(R.id.externalAppBrowserFragment, directions)
+            }
         }
     }
 

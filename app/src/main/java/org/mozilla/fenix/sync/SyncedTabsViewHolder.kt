@@ -9,17 +9,18 @@ import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
-import android.widget.LinearLayout
+import androidx.annotation.VisibleForTesting
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.android.synthetic.main.sync_tabs_error_row.view.*
-import kotlinx.android.synthetic.main.sync_tabs_list_item.view.*
-import kotlinx.android.synthetic.main.view_synced_tabs_group.view.*
-import kotlinx.android.synthetic.main.view_synced_tabs_title.view.*
-import mozilla.components.concept.sync.DeviceType
+import mozilla.components.browser.toolbar.MAX_URI_LENGTH
 import mozilla.components.feature.syncedtabs.view.SyncedTabsView
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
-import org.mozilla.fenix.ext.navigateBlockingForAsyncNavGraph
+import org.mozilla.fenix.databinding.SyncTabsErrorRowBinding
+import org.mozilla.fenix.databinding.SyncTabsListItemBinding
+import org.mozilla.fenix.databinding.ViewSyncedTabsGroupBinding
+import org.mozilla.fenix.databinding.ViewSyncedTabsTitleBinding
+import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.ext.toShortUrl
 import org.mozilla.fenix.sync.SyncedTabsAdapter.AdapterItem
 
 /**
@@ -31,7 +32,6 @@ sealed class SyncedTabsViewHolder(itemView: View) : RecyclerView.ViewHolder(item
     abstract fun <T : AdapterItem> bind(item: T, interactor: SyncedTabsView.Listener)
 
     class TabViewHolder(itemView: View) : SyncedTabsViewHolder(itemView) {
-
         override fun <T : AdapterItem> bind(item: T, interactor: SyncedTabsView.Listener) {
             bindTab(item as AdapterItem.Tab)
 
@@ -42,8 +42,11 @@ sealed class SyncedTabsViewHolder(itemView: View) : RecyclerView.ViewHolder(item
 
         private fun bindTab(tab: AdapterItem.Tab) {
             val active = tab.tab.active()
-            itemView.synced_tab_item_title.text = active.title
-            itemView.synced_tab_item_url.text = active.url
+            val binding = SyncTabsListItemBinding.bind(itemView)
+            binding.syncedTabItemTitle.text = active.title
+            binding.syncedTabItemUrl.text = active.url
+                .toShortUrl(itemView.context.components.publicSuffixList)
+                .take(MAX_URI_LENGTH)
         }
 
         companion object {
@@ -52,19 +55,18 @@ sealed class SyncedTabsViewHolder(itemView: View) : RecyclerView.ViewHolder(item
     }
 
     class ErrorViewHolder(itemView: View) : SyncedTabsViewHolder(itemView) {
-
         override fun <T : AdapterItem> bind(item: T, interactor: SyncedTabsView.Listener) {
             val errorItem = item as AdapterItem.Error
-            setErrorMargins()
+            val binding = SyncTabsErrorRowBinding.bind(itemView)
 
-            itemView.sync_tabs_error_description.text =
+            binding.syncTabsErrorDescription.text =
                 itemView.context.getString(errorItem.descriptionResId)
-            itemView.sync_tabs_error_cta_button.visibility = GONE
+            binding.syncTabsErrorCtaButton.visibility = GONE
 
             errorItem.navController?.let { navController ->
-                itemView.sync_tabs_error_cta_button.visibility = VISIBLE
-                itemView.sync_tabs_error_cta_button.setOnClickListener {
-                    navController.navigateBlockingForAsyncNavGraph(NavGraphDirections.actionGlobalTurnOnSync())
+                binding.syncTabsErrorCtaButton.visibility = VISIBLE
+                binding.syncTabsErrorCtaButton.setOnClickListener {
+                    navController.navigate(NavGraphDirections.actionGlobalTurnOnSync())
                 }
             }
         }
@@ -76,23 +78,15 @@ sealed class SyncedTabsViewHolder(itemView: View) : RecyclerView.ViewHolder(item
 
     class DeviceViewHolder(itemView: View) : SyncedTabsViewHolder(itemView) {
 
+        @VisibleForTesting
+        internal val binding = ViewSyncedTabsGroupBinding.bind(itemView)
+
         override fun <T : AdapterItem> bind(item: T, interactor: SyncedTabsView.Listener) {
             bindHeader(item as AdapterItem.Device)
         }
 
         private fun bindHeader(device: AdapterItem.Device) {
-            val deviceLogoDrawable = when (device.device.deviceType) {
-                DeviceType.DESKTOP -> R.drawable.mozac_ic_device_desktop
-                else -> R.drawable.mozac_ic_device_mobile
-            }
-
-            itemView.synced_tabs_group_name.text = device.device.displayName
-            itemView.synced_tabs_group_name.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                deviceLogoDrawable,
-                0,
-                0,
-                0
-            )
+            binding.syncedTabsGroupName.text = device.device.displayName
         }
 
         companion object {
@@ -109,9 +103,9 @@ sealed class SyncedTabsViewHolder(itemView: View) : RecyclerView.ViewHolder(item
     }
 
     class TitleViewHolder(itemView: View) : SyncedTabsViewHolder(itemView) {
-
         override fun <T : AdapterItem> bind(item: T, interactor: SyncedTabsView.Listener) {
-            itemView.refresh_icon.setOnClickListener { v ->
+            val binding = ViewSyncedTabsTitleBinding.bind(itemView)
+            binding.refreshIcon.setOnClickListener { v ->
                 val rotation = AnimationUtils.loadAnimation(
                     itemView.context,
                     R.anim.full_rotation
@@ -128,15 +122,5 @@ sealed class SyncedTabsViewHolder(itemView: View) : RecyclerView.ViewHolder(item
         companion object {
             const val LAYOUT_ID = R.layout.view_synced_tabs_title
         }
-    }
-
-    internal fun setErrorMargins() {
-        val lp = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-        val margin = itemView.resources.getDimensionPixelSize(R.dimen.synced_tabs_error_margin)
-        lp.setMargins(margin, margin, margin, 0)
-        itemView.layoutParams = lp
     }
 }

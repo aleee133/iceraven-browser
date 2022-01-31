@@ -12,7 +12,6 @@ import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
 import junit.framework.TestCase.assertNotSame
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestCoroutineDispatcher
 import mozilla.components.browser.state.action.ContentAction
 import mozilla.components.browser.state.action.TabListAction
@@ -31,7 +30,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.helpers.FenixRobolectricTestRunner
 
-@ExperimentalCoroutinesApi
 @RunWith(FenixRobolectricTestRunner::class)
 class TrackingProtectionPanelDialogFragmentTest {
 
@@ -65,7 +63,7 @@ class TrackingProtectionPanelDialogFragmentTest {
         val tab = createTab("mozilla.org")
 
         every { fragment.trackingProtectionStore } returns trackingProtectionStore
-        every { fragment.provideTabId() } returns tab.id
+        every { fragment.provideCurrentTabId() } returns tab.id
 
         fragment.observeUrlChange(store)
         addAndSelectTab(tab)
@@ -87,7 +85,7 @@ class TrackingProtectionPanelDialogFragmentTest {
         val tab = createTab("mozilla.org")
 
         every { fragment.trackingProtectionStore } returns trackingProtectionStore
-        every { fragment.provideTabId() } returns tab.id
+        every { fragment.provideCurrentTabId() } returns tab.id
         every { fragment.updateTrackers(any()) } returns Unit
 
         fragment.observeTrackersChange(store)
@@ -114,7 +112,7 @@ class TrackingProtectionPanelDialogFragmentTest {
         val tab = createTab("mozilla.org")
 
         every { fragment.trackingProtectionStore } returns trackingProtectionStore
-        every { fragment.provideTabId() } returns tab.id
+        every { fragment.provideCurrentTabId() } returns tab.id
         every { fragment.updateTrackers(any()) } returns Unit
 
         fragment.observeTrackersChange(store)

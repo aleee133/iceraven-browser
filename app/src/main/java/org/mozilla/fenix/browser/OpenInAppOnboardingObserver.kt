@@ -10,7 +10,6 @@ import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.mapNotNull
@@ -24,16 +23,12 @@ import mozilla.components.support.ktx.kotlinx.coroutines.flow.ifAnyChanged
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.infobanner.DynamicInfoBanner
 import org.mozilla.fenix.browser.infobanner.InfoBanner
-import org.mozilla.fenix.components.metrics.Event
-import org.mozilla.fenix.components.metrics.Event.BannerOpenInAppGoToSettings
-import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.utils.Settings
 
 /**
  * Displays an [InfoBanner] when a user visits a website that can be opened in an installed native app.
  */
-@ExperimentalCoroutinesApi
 @Suppress("LongParameterList")
 class OpenInAppOnboardingObserver(
     private val context: Context,
@@ -58,22 +53,23 @@ class OpenInAppOnboardingObserver(
             flow.mapNotNull { state ->
                 state.selectedTab
             }
-            .ifAnyChanged {
-                tab -> arrayOf(tab.content.url, tab.content.loading)
-            }
-            .collect { tab ->
-                if (tab.content.url != currentUrl) {
-                    sessionDomainForDisplayedBanner?.let {
-                        if (tab.content.url.tryGetHostFromUrl() != it) {
-                            infoBanner?.dismiss()
-                        }
-                    }
-                    currentUrl = tab.content.url
-                } else {
-                    // Loading state has changed
-                    maybeShowOpenInAppBanner(tab.content.url, tab.content.loading)
+                .ifAnyChanged {
+                    tab ->
+                    arrayOf(tab.content.url, tab.content.loading)
                 }
-            }
+                .collect { tab ->
+                    if (tab.content.url != currentUrl) {
+                        sessionDomainForDisplayedBanner?.let {
+                            if (tab.content.url.tryGetHostFromUrl() != it) {
+                                infoBanner?.dismiss()
+                            }
+                        }
+                        currentUrl = tab.content.url
+                    } else {
+                        // Loading state has changed
+                        maybeShowOpenInAppBanner(tab.content.url, tab.content.loading)
+                    }
+                }
         }
     }
 
@@ -92,7 +88,6 @@ class OpenInAppOnboardingObserver(
             infoBanner?.showBanner()
             sessionDomainForDisplayedBanner = url.tryGetHostFromUrl()
             settings.shouldShowOpenInAppBanner = false
-            context.components.analytics.metrics.track(Event.BannerOpenInAppDisplayed)
         }
     }
 
@@ -104,18 +99,12 @@ class OpenInAppOnboardingObserver(
             dismissText = context.getString(R.string.open_in_app_cfr_negative_button_text),
             actionText = context.getString(R.string.open_in_app_cfr_positive_button_text),
             container = container,
-            shouldScrollWithTopToolbar = shouldScrollWithTopToolbar,
-            dismissAction = ::dismissAction
+            shouldScrollWithTopToolbar = shouldScrollWithTopToolbar
         ) {
             val directions = BrowserFragmentDirections.actionBrowserFragmentToSettingsFragment(
                 preferenceToScrollTo = context.getString(R.string.pref_key_open_links_in_external_app)
             )
-            context.components.analytics.metrics.track(BannerOpenInAppGoToSettings)
             navController.nav(R.id.browserFragment, directions)
         }
-    }
-
-    private fun dismissAction() {
-        context.components.analytics.metrics.track(Event.BannerOpenInAppDismissed)
     }
 }

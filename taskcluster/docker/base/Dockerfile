@@ -4,8 +4,6 @@
 
 FROM ubuntu:18.04
 
-MAINTAINER Tom Prince "mozilla@hocat.ca"
-
 # Add worker user
 RUN mkdir /builds && \
     useradd -d /builds/worker -s /bin/bash -m worker && \
@@ -33,6 +31,7 @@ RUN apt-get update -qq \
     # we cannot navigate while building the Docker image.
     && apt-get install -y tzdata \
     && apt-get install -y openjdk-8-jdk \
+                          openjdk-11-jdk \
                           wget \
                           expect \
                           git \

@@ -6,21 +6,24 @@ package org.mozilla.fenix.tabstray
 
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import mozilla.components.browser.state.action.DebugAction
+import mozilla.components.browser.state.action.LastAccessAction
 import mozilla.components.browser.state.selector.findTab
 import mozilla.components.browser.state.selector.getNormalOrPrivateTabs
+import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.base.profiler.Profiler
-import mozilla.components.concept.tabstray.Tab
 import mozilla.components.feature.tabs.TabsUseCases
+import mozilla.components.lib.state.DelicateAction
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.metrics.Event
 import org.mozilla.fenix.components.metrics.MetricController
-import org.mozilla.fenix.ext.navigateBlockingForAsyncNavGraph
 import org.mozilla.fenix.home.HomeFragment
-import org.mozilla.fenix.tabtray.TabTrayDialogFragmentDirections
+import org.mozilla.fenix.ext.DEFAULT_ACTIVE_DAYS
+import org.mozilla.fenix.ext.potentialInactiveTabs
+import java.util.concurrent.TimeUnit
 
 interface TabsTrayController {
 
@@ -43,18 +46,40 @@ interface TabsTrayController {
     fun handleNavigateToBrowser()
 
     /**
-     * Deletes the [Tab] with the specified [tabId].
+     * Deletes the [TabSessionState] with the specified [tabId].
      *
-     * @param tabId The id of the [Tab] to be removed from TabsTray.
+     * @param tabId The id of the [TabSessionState] to be removed from TabsTray.
      */
     fun handleTabDeletion(tabId: String)
 
     /**
      * Deletes a list of [tabs].
      *
-     * @param tabs List of [Tab]s (sessions) to be removed.
+     * @param tabs List of [TabSessionState]s (sessions) to be removed.
      */
-    fun handleMultipleTabsDeletion(tabs: Collection<Tab>)
+    fun handleMultipleTabsDeletion(tabs: Collection<TabSessionState>)
+
+    /**
+     * Navigate from TabsTray to Recently Closed section in the History fragment.
+     */
+    fun handleNavigateToRecentlyClosed()
+
+    /**
+     * Set the list of [tabs] into the inactive state.
+     *
+     * ⚠️ DO NOT USE THIS OUTSIDE OF DEBUGGING/TESTING.
+     *
+     * @param tabs List of [TabSessionState]s to be removed.
+     */
+    fun forceTabsAsInactive(
+        tabs: Collection<TabSessionState>,
+        numOfDays: Long = DEFAULT_ACTIVE_DAYS + 1
+    )
+
+    /**
+     * Deletes all inactive tabs.
+     */
+    fun handleDeleteAllInactiveTabs()
 }
 
 class DefaultTabsTrayController(
@@ -76,8 +101,9 @@ class DefaultTabsTrayController(
     override fun handleOpeningNewTab(isPrivate: Boolean) {
         val startTime = profiler?.getProfilerTime()
         browsingModeManager.mode = BrowsingMode.fromBoolean(isPrivate)
-        navController.navigateBlockingForAsyncNavGraph(
-            TabTrayDialogFragmentDirections.actionGlobalHome(focusOnAddressBar = true))
+        navController.navigate(
+            TabsTrayFragmentDirections.actionGlobalHome(focusOnAddressBar = true)
+        )
         navigationInteractor.onTabTrayDismissed()
         profiler?.addMarker(
             "DefaultTabTrayController.onNewTabTapped",
@@ -100,14 +126,14 @@ class DefaultTabsTrayController(
         if (navController.currentDestination?.id == R.id.browserFragment) {
             return
         } else if (!navController.popBackStack(R.id.browserFragment, false)) {
-            navController.navigateBlockingForAsyncNavGraph(R.id.browserFragment)
+            navController.navigate(R.id.browserFragment)
         }
     }
 
     /**
-     * Deletes the [Tab] with the specified [tabId].
+     * Deletes the [TabSessionState] with the specified [tabId].
      *
-     * @param tabId The id of the [Tab] to be removed from TabsTray.
+     * @param tabId The id of the [TabSessionState] to be removed from TabsTray.
      * This method has no effect if the tab does not exist.
      */
     override fun handleTabDeletion(tabId: String) {
@@ -126,11 +152,11 @@ class DefaultTabsTrayController(
     /**
      * Deletes a list of [tabs] offering an undo option.
      *
-     * @param tabs List of [Tab]s (sessions) to be removed. This method has no effect for tabs that do not exist.
+     * @param tabs List of [TabSessionState]s (sessions) to be removed.
+     * This method has no effect for tabs that do not exist.
      */
-    @ExperimentalCoroutinesApi
-    override fun handleMultipleTabsDeletion(tabs: Collection<Tab>) {
-        val isPrivate = tabs.any { it.private }
+    override fun handleMultipleTabsDeletion(tabs: Collection<TabSessionState>) {
+        val isPrivate = tabs.any { it.content.private }
 
         // If user closes all the tabs from selected tabs page dismiss tray and navigate home.
         if (tabs.size == browserStore.state.getNormalOrPrivateTabs(isPrivate).size) {
@@ -143,6 +169,34 @@ class DefaultTabsTrayController(
             }
         }
         showUndoSnackbarForTab(isPrivate)
+    }
+
+    /**
+     * Dismisses the tabs tray and navigates to the Recently Closed section in the History fragment.
+     */
+    override fun handleNavigateToRecentlyClosed() {
+        dismissTray()
+
+        navController.navigate(R.id.recentlyClosedFragment)
+
+        metrics.track(Event.TabsTrayRecentlyClosedPressed)
+    }
+
+    /**
+     * Marks all the [tabs] with the [TabSessionState.lastAccess] to 15 days; enough time to
+     * have a tab considered as inactive.
+     *
+     * ⚠️ DO NOT USE THIS OUTSIDE OF DEBUGGING/TESTING.
+     */
+    @OptIn(DelicateAction::class)
+    override fun forceTabsAsInactive(tabs: Collection<TabSessionState>, numOfDays: Long) {
+        tabs.forEach { tab ->
+            val daysSince = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(numOfDays)
+            browserStore.apply {
+                dispatch(LastAccessAction.UpdateLastAccessAction(tab.id, daysSince))
+                dispatch(DebugAction.UpdateCreatedAtAction(tab.id, daysSince))
+            }
+        }
     }
 
     @VisibleForTesting
@@ -160,5 +214,13 @@ class DefaultTabsTrayController(
     internal fun dismissTabsTrayAndNavigateHome(sessionId: String) {
         dismissTray()
         navigateToHomeAndDeleteSession(sessionId)
+    }
+
+    override fun handleDeleteAllInactiveTabs() {
+        metrics.track(Event.TabsTrayCloseAllInactiveTabs)
+        browserStore.state.potentialInactiveTabs.map { it.id }.let {
+            tabsUseCases.removeTabs(it)
+        }
+        showUndoSnackbarForTab(false)
     }
 }

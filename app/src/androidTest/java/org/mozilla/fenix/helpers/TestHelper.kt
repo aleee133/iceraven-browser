@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -15,36 +16,43 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import androidx.browser.customtabs.CustomTabsIntent
-import androidx.preference.PreferenceManager
 import androidx.test.espresso.Espresso
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.IdlingRegistry
 import androidx.test.espresso.action.ViewActions.longClick
 import androidx.test.espresso.assertion.ViewAssertions
+import androidx.test.espresso.intent.Intents
+import androidx.test.espresso.intent.matcher.IntentMatchers
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject
 import androidx.test.uiautomator.UiScrollable
 import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
+import java.io.File
 import kotlinx.coroutines.runBlocking
+import mozilla.components.support.ktx.android.content.appName
 import org.hamcrest.CoreMatchers
 import org.hamcrest.CoreMatchers.allOf
+import org.junit.Assert
 import org.mozilla.fenix.R
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.ext.waitNotNull
 import org.mozilla.fenix.helpers.idlingresource.NetworkConnectionIdlingResource
 import org.mozilla.fenix.ui.robots.mDevice
-import java.io.File
 
 object TestHelper {
 
-    val packageName = InstrumentationRegistry.getInstrumentation().targetContext.packageName
+    val appContext: Context = InstrumentationRegistry.getInstrumentation().targetContext
+    val packageName: String = appContext.packageName
+    val appName = appContext.appName
 
     fun scrollToElementByText(text: String): UiScrollable {
         val appView = UiScrollable(UiSelector().scrollable(true))
+        appView.waitForExists(waitingTime)
         appView.scrollTextIntoView(text)
         return appView
     }
@@ -62,14 +70,7 @@ object TestHelper {
         ).perform(longClick())
     }
 
-    fun setPreference(context: Context, pref: String, value: Int) {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val editor = preferences.edit()
-        editor.putInt(pref, value)
-        editor.apply()
-    }
-
-    fun restartApp(activity: HomeActivityTestRule) {
+    fun restartApp(activity: HomeActivityIntentTestRule) {
         with(activity) {
             finishActivity()
             mDevice.waitForIdle()
@@ -79,7 +80,7 @@ object TestHelper {
 
     fun getPermissionAllowID(): String {
         return when
-            (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+        (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
             true -> "com.android.permissioncontroller"
             false -> "com.android.packageinstaller"
         }
@@ -185,5 +186,41 @@ object TestHelper {
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.GREEN)
         return bitmap
+    }
+
+    fun isPackageInstalled(packageName: String): Boolean {
+        return try {
+            val packageManager = InstrumentationRegistry.getInstrumentation().context.packageManager
+            packageManager.getApplicationInfo(packageName, 0).enabled
+        } catch (exception: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
+
+    fun assertExternalAppOpens(appPackageName: String) {
+        if (isPackageInstalled(appPackageName)) {
+            Intents.intended(IntentMatchers.toPackage(appPackageName))
+        } else {
+            val mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            mDevice.waitNotNull(
+                Until.findObject(By.text("Could not open file")),
+                waitingTime
+            )
+        }
+    }
+
+    fun returnToBrowser() {
+        val urlBar =
+            mDevice.findObject(UiSelector().resourceId("$packageName:id/mozac_browser_toolbar_url_view"))
+        do {
+            mDevice.pressBack()
+        } while (
+            !urlBar.waitForExists(waitingTime)
+        )
+    }
+
+    fun UiDevice.waitForObjects(obj: UiObject, waitingTime: Long = TestAssetHelper.waitingTime) {
+        this.waitForIdle()
+        Assert.assertNotNull(obj.waitForExists(waitingTime))
     }
 }

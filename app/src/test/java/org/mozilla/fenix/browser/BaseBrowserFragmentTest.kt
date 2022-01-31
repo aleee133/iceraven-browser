@@ -14,14 +14,13 @@ import io.mockk.spyk
 import io.mockk.verify
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.state.content.DownloadState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.concept.engine.EngineView
 import mozilla.components.feature.contextmenu.ContextMenuCandidate
 import mozilla.components.feature.session.behavior.EngineViewBrowserToolbarBehavior
-import mozilla.components.feature.sitepermissions.SitePermissions
+import mozilla.components.concept.engine.permission.SitePermissions
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.ui.widgets.VerticalSwipeRefreshLayout
 import org.junit.Before
@@ -30,7 +29,6 @@ import org.junit.runner.RunWith
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.helpers.FenixRobolectricTestRunner
 
-@ExperimentalCoroutinesApi
 @RunWith(FenixRobolectricTestRunner::class)
 class BaseBrowserFragmentTest {
     private lateinit var fragment: TestBaseBrowserFragment
@@ -197,7 +195,6 @@ class BaseBrowserFragmentTest {
     }
 }
 
-@ExperimentalCoroutinesApi
 private class TestBaseBrowserFragment : BaseBrowserFragment() {
     override fun getContextMenuCandidates(
         context: Context,
@@ -208,10 +205,6 @@ private class TestBaseBrowserFragment : BaseBrowserFragment() {
     }
 
     override fun navToQuickSettingsSheet(tab: SessionState, sitePermissions: SitePermissions?) {
-        // no-op
-    }
-
-    override fun navToTrackingProtectionPanel(tab: SessionState) {
         // no-op
     }
 }

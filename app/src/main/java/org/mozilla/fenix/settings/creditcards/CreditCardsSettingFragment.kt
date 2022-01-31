@@ -21,7 +21,6 @@ import androidx.navigation.fragment.findNavController
 import androidx.preference.Preference
 import androidx.preference.SwitchPreference
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import mozilla.components.lib.state.ext.consumeFrom
@@ -29,11 +28,10 @@ import mozilla.components.service.fxa.SyncEngine
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.StoreProvider
-import org.mozilla.fenix.ext.navigateBlockingForAsyncNavGraph
 import org.mozilla.fenix.ext.requireComponents
-import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.ext.runIfFragmentIsAttached
 import org.mozilla.fenix.ext.secure
+import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.ext.showToolbar
 import org.mozilla.fenix.settings.SharedPreferenceUpdater
 import org.mozilla.fenix.settings.SyncPreferenceView
@@ -100,7 +98,6 @@ class CreditCardsSettingFragment : BiometricPromptPreferenceFragment() {
         return super.onCreateView(inflater, container, savedInstanceState)
     }
 
-    @ExperimentalCoroutinesApi
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         consumeFrom(creditCardsStore) { state ->
@@ -130,12 +127,12 @@ class CreditCardsSettingFragment : BiometricPromptPreferenceFragment() {
             loggedInTitle = requireContext()
                 .getString(R.string.preferences_credit_cards_sync_cards),
             onSignInToSyncClicked = {
-                findNavController().navigateBlockingForAsyncNavGraph(
+                findNavController().navigate(
                     NavGraphDirections.actionGlobalTurnOnSync()
                 )
             },
             onReconnectClicked = {
-                findNavController().navigateBlockingForAsyncNavGraph(
+                findNavController().navigate(
                     CreditCardsSettingFragmentDirections.actionGlobalAccountProblemFragment()
                 )
             }
@@ -169,7 +166,7 @@ class CreditCardsSettingFragment : BiometricPromptPreferenceFragment() {
             if (hasCreditCards) {
                 verifyCredentialsOrShowSetupWarning(requireContext(), creditCardPreferences)
             } else {
-                navController.navigateBlockingForAsyncNavGraph(
+                navController.navigate(
                     CreditCardsSettingFragmentDirections
                         .actionCreditCardsSettingFragmentToCreditCardEditorFragment()
                 )
@@ -233,14 +230,14 @@ class CreditCardsSettingFragment : BiometricPromptPreferenceFragment() {
             getString(R.string.credit_cards_biometric_prompt_message_pin),
             getString(R.string.credit_cards_biometric_prompt_message)
         )
-        startActivityForResult(intent, BiometricPromptPreferenceFragment.PIN_REQUEST)
+        startActivityForResult(intent, PIN_REQUEST)
     }
 
     private fun navigateToCreditCardManagementFragment() {
         val directions =
             CreditCardsSettingFragmentDirections
                 .actionCreditCardsSettingFragmentToCreditCardsManagementFragment()
-        findNavController().navigateBlockingForAsyncNavGraph(directions)
+        findNavController().navigate(directions)
     }
 
     companion object {

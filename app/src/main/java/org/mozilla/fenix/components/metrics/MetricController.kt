@@ -5,10 +5,11 @@
 package org.mozilla.fenix.components.metrics
 
 import androidx.annotation.VisibleForTesting
-import mozilla.components.browser.awesomebar.facts.BrowserAwesomeBarFacts
 import mozilla.components.browser.menu.facts.BrowserMenuFacts
 import mozilla.components.browser.toolbar.facts.ToolbarFacts
+import mozilla.components.compose.browser.awesomebar.AwesomeBarFacts as ComposeAwesomeBarFacts
 import mozilla.components.concept.awesomebar.AwesomeBar
+import mozilla.components.feature.autofill.facts.AutofillFacts
 import mozilla.components.feature.awesomebar.facts.AwesomeBarFacts
 import mozilla.components.feature.awesomebar.provider.BookmarksStorageSuggestionProvider
 import mozilla.components.feature.awesomebar.provider.ClipboardSuggestionProvider
@@ -17,12 +18,12 @@ import mozilla.components.feature.awesomebar.provider.SearchSuggestionProvider
 import mozilla.components.feature.awesomebar.provider.SessionSuggestionProvider
 import mozilla.components.feature.contextmenu.facts.ContextMenuFacts
 import mozilla.components.feature.customtabs.CustomTabsFacts
-import mozilla.components.feature.downloads.facts.DownloadsFacts
-import mozilla.components.feature.findinpage.facts.FindInPageFacts
 import mozilla.components.feature.media.facts.MediaFacts
-import mozilla.components.feature.prompts.facts.LoginDialogFacts
+import mozilla.components.feature.prompts.dialog.LoginDialogFacts
 import mozilla.components.feature.prompts.facts.CreditCardAutofillDialogFacts
 import mozilla.components.feature.pwa.ProgressiveWebAppFacts
+import mozilla.components.feature.search.telemetry.ads.AdsTelemetry
+import mozilla.components.feature.search.telemetry.incontent.InContentTelemetry
 import mozilla.components.feature.syncedtabs.facts.SyncedTabsFacts
 import mozilla.components.feature.top.sites.facts.TopSitesFacts
 import mozilla.components.lib.dataprotect.SecurePrefsReliabilityExperiment
@@ -156,23 +157,27 @@ internal class ReleaseMetricController(
         MetricServiceType.Marketing -> isMarketingDataTelemetryEnabled()
     }
 
-    @Suppress("LongMethod")
-    private fun Fact.toEvent(): Event? = when (Pair(component, item)) {
-        Component.FEATURE_PROMPTS to LoginDialogFacts.Items.DISPLAY -> Event.LoginDialogPromptDisplayed
-        Component.FEATURE_PROMPTS to LoginDialogFacts.Items.CANCEL -> Event.LoginDialogPromptCancelled
-        Component.FEATURE_PROMPTS to LoginDialogFacts.Items.NEVER_SAVE -> Event.LoginDialogPromptNeverSave
-        Component.FEATURE_PROMPTS to LoginDialogFacts.Items.SAVE -> Event.LoginDialogPromptSave
-        Component.FEATURE_PROMPTS to CreditCardAutofillDialogFacts.Items.AUTOFILL_CREDIT_CARD_SUCCESS -> {
-            settings.creditCardsAutofilledCount += 1
-            null
-        }
+    @Suppress("LongMethod", "MaxLineLength")
+    private fun Fact.toEvent(): Event? = when {
+        Component.FEATURE_PROMPTS == component && LoginDialogFacts.Items.DISPLAY == item -> Event.LoginDialogPromptDisplayed
+        Component.FEATURE_PROMPTS == component && LoginDialogFacts.Items.CANCEL == item -> Event.LoginDialogPromptCancelled
+        Component.FEATURE_PROMPTS == component && LoginDialogFacts.Items.NEVER_SAVE == item -> Event.LoginDialogPromptNeverSave
+        Component.FEATURE_PROMPTS == component && LoginDialogFacts.Items.SAVE == item -> Event.LoginDialogPromptSave
+        Component.FEATURE_PROMPTS == component && CreditCardAutofillDialogFacts.Items.AUTOFILL_CREDIT_CARD_FORM_DETECTED == item ->
+            Event.CreditCardFormDetected
+        Component.FEATURE_PROMPTS == component && CreditCardAutofillDialogFacts.Items.AUTOFILL_CREDIT_CARD_SUCCESS == item ->
+            Event.CreditCardAutofilled
+        Component.FEATURE_PROMPTS == component && CreditCardAutofillDialogFacts.Items.AUTOFILL_CREDIT_CARD_PROMPT_SHOWN == item ->
+            Event.CreditCardAutofillPromptShown
+        Component.FEATURE_PROMPTS == component && CreditCardAutofillDialogFacts.Items.AUTOFILL_CREDIT_CARD_PROMPT_EXPANDED == item ->
+            Event.CreditCardAutofillPromptExpanded
+        Component.FEATURE_PROMPTS == component && CreditCardAutofillDialogFacts.Items.AUTOFILL_CREDIT_CARD_PROMPT_DISMISSED == item ->
+            Event.CreditCardAutofillPromptDismissed
 
-        Component.FEATURE_FINDINPAGE to FindInPageFacts.Items.CLOSE -> Event.FindInPageClosed
-        Component.FEATURE_FINDINPAGE to FindInPageFacts.Items.INPUT -> Event.FindInPageSearchCommitted
-        Component.FEATURE_CONTEXTMENU to ContextMenuFacts.Items.ITEM -> {
+        Component.FEATURE_CONTEXTMENU == component && ContextMenuFacts.Items.ITEM == item -> {
             metadata?.get("item")?.let { Event.ContextMenuItemTapped.create(it.toString()) }
         }
-        Component.FEATURE_CONTEXTMENU to ContextMenuFacts.Items.TEXT_SELECTION_OPTION -> {
+        Component.FEATURE_CONTEXTMENU == component && ContextMenuFacts.Items.TEXT_SELECTION_OPTION == item -> {
             when (metadata?.get("textSelectionOption")?.toString()) {
                 CONTEXT_MENU_COPY -> Event.ContextMenuCopyTapped
                 CONTEXT_MENU_SEARCH, CONTEXT_MENU_SEARCH_PRIVATELY -> Event.ContextMenuSearchTapped
@@ -182,34 +187,23 @@ internal class ReleaseMetricController(
             }
         }
 
-        Component.BROWSER_TOOLBAR to ToolbarFacts.Items.MENU -> {
+        Component.BROWSER_TOOLBAR == component && ToolbarFacts.Items.MENU == item -> {
             metadata?.get("customTab")?.let { Event.CustomTabsMenuOpened } ?: Event.ToolbarMenuShown
         }
-        Component.BROWSER_MENU to BrowserMenuFacts.Items.WEB_EXTENSION_MENU_ITEM -> {
+        Component.BROWSER_MENU == component && BrowserMenuFacts.Items.WEB_EXTENSION_MENU_ITEM == item -> {
             metadata?.get("id")?.let { Event.AddonsOpenInToolbarMenu(it.toString()) }
         }
-        Component.FEATURE_CUSTOMTABS to CustomTabsFacts.Items.CLOSE -> Event.CustomTabsClosed
-        Component.FEATURE_CUSTOMTABS to CustomTabsFacts.Items.ACTION_BUTTON -> Event.CustomTabsActionTapped
+        Component.FEATURE_CUSTOMTABS == component && CustomTabsFacts.Items.CLOSE == item -> Event.CustomTabsClosed
+        Component.FEATURE_CUSTOMTABS == component && CustomTabsFacts.Items.ACTION_BUTTON == item -> Event.CustomTabsActionTapped
 
-        Component.FEATURE_DOWNLOADS to DownloadsFacts.Items.NOTIFICATION -> {
-            when (action) {
-                Action.CANCEL -> Event.NotificationDownloadCancel
-                Action.OPEN -> Event.NotificationDownloadOpen
-                Action.PAUSE -> Event.NotificationDownloadPause
-                Action.RESUME -> Event.NotificationDownloadResume
-                Action.TRY_AGAIN -> Event.NotificationDownloadTryAgain
-                else -> null
-            }
-        }
-
-        Component.FEATURE_MEDIA to MediaFacts.Items.NOTIFICATION -> {
+        Component.FEATURE_MEDIA == component && MediaFacts.Items.NOTIFICATION == item -> {
             when (action) {
                 Action.PLAY -> Event.NotificationMediaPlay
                 Action.PAUSE -> Event.NotificationMediaPause
                 else -> null
             }
         }
-        Component.FEATURE_MEDIA to MediaFacts.Items.STATE -> {
+        Component.FEATURE_MEDIA == component && MediaFacts.Items.STATE == item -> {
             when (action) {
                 Action.PLAY -> Event.MediaPlayState
                 Action.PAUSE -> Event.MediaPauseState
@@ -217,7 +211,7 @@ internal class ReleaseMetricController(
                 else -> null
             }
         }
-        Component.SUPPORT_WEBEXTENSIONS to WebExtensionFacts.Items.WEB_EXTENSIONS_INITIALIZED -> {
+        Component.SUPPORT_WEBEXTENSIONS == component && WebExtensionFacts.Items.WEB_EXTENSIONS_INITIALIZED == item -> {
             metadata?.get("installed")?.let { installedAddons ->
                 if (installedAddons is List<*>) {
                     settings.installedAddonsCount = installedAddons.size
@@ -234,8 +228,8 @@ internal class ReleaseMetricController(
 
             null
         }
-        Component.BROWSER_AWESOMEBAR to BrowserAwesomeBarFacts.Items.PROVIDER_DURATION -> {
-            metadata?.get(BrowserAwesomeBarFacts.MetadataKeys.DURATION_PAIR)?.let { providerTiming ->
+        Component.BROWSER_AWESOMEBAR == component && ComposeAwesomeBarFacts.Items.PROVIDER_DURATION == item -> {
+            metadata?.get(ComposeAwesomeBarFacts.MetadataKeys.DURATION_PAIR)?.let { providerTiming ->
                 require(providerTiming is Pair<*, *>) { "Expected providerTiming to be a Pair" }
                 when (val provider = providerTiming.first as AwesomeBar.SuggestionProvider) {
                     is HistoryStorageSuggestionProvider -> PerfAwesomebar.historySuggestions
@@ -253,13 +247,13 @@ internal class ReleaseMetricController(
             }
             null
         }
-        Component.FEATURE_PWA to ProgressiveWebAppFacts.Items.HOMESCREEN_ICON_TAP -> {
+        Component.FEATURE_PWA == component && ProgressiveWebAppFacts.Items.HOMESCREEN_ICON_TAP == item -> {
             Event.ProgressiveWebAppOpenFromHomescreenTap
         }
-        Component.FEATURE_PWA to ProgressiveWebAppFacts.Items.INSTALL_SHORTCUT -> {
+        Component.FEATURE_PWA == component && ProgressiveWebAppFacts.Items.INSTALL_SHORTCUT == item -> {
             Event.ProgressiveWebAppInstallAsShortcut
         }
-        Component.FEATURE_TOP_SITES to TopSitesFacts.Items.COUNT -> {
+        Component.FEATURE_TOP_SITES == component && TopSitesFacts.Items.COUNT == item -> {
             value?.let {
                 var count = 0
                 try {
@@ -272,49 +266,87 @@ internal class ReleaseMetricController(
             }
             null
         }
-        Component.FEATURE_SYNCEDTABS to SyncedTabsFacts.Items.SYNCED_TABS_SUGGESTION_CLICKED -> {
+        Component.FEATURE_SYNCEDTABS == component && SyncedTabsFacts.Items.SYNCED_TABS_SUGGESTION_CLICKED == item -> {
             Event.SyncedTabSuggestionClicked
         }
-        Component.FEATURE_AWESOMEBAR to AwesomeBarFacts.Items.BOOKMARK_SUGGESTION_CLICKED -> {
+        Component.FEATURE_AWESOMEBAR == component && AwesomeBarFacts.Items.BOOKMARK_SUGGESTION_CLICKED == item -> {
             Event.BookmarkSuggestionClicked
         }
-        Component.FEATURE_AWESOMEBAR to AwesomeBarFacts.Items.CLIPBOARD_SUGGESTION_CLICKED -> {
+        Component.FEATURE_AWESOMEBAR == component && AwesomeBarFacts.Items.CLIPBOARD_SUGGESTION_CLICKED == item -> {
             Event.ClipboardSuggestionClicked
         }
-        Component.FEATURE_AWESOMEBAR to AwesomeBarFacts.Items.HISTORY_SUGGESTION_CLICKED -> {
+        Component.FEATURE_AWESOMEBAR == component && AwesomeBarFacts.Items.HISTORY_SUGGESTION_CLICKED == item -> {
             Event.HistorySuggestionClicked
         }
-        Component.FEATURE_AWESOMEBAR to AwesomeBarFacts.Items.SEARCH_ACTION_CLICKED -> {
+        Component.FEATURE_AWESOMEBAR == component && AwesomeBarFacts.Items.SEARCH_ACTION_CLICKED == item -> {
             Event.SearchActionClicked
         }
-        Component.FEATURE_AWESOMEBAR to AwesomeBarFacts.Items.SEARCH_SUGGESTION_CLICKED -> {
+        Component.FEATURE_AWESOMEBAR == component && AwesomeBarFacts.Items.SEARCH_SUGGESTION_CLICKED == item -> {
             Event.SearchSuggestionClicked
         }
-        Component.FEATURE_AWESOMEBAR to AwesomeBarFacts.Items.OPENED_TAB_SUGGESTION_CLICKED -> {
+        Component.FEATURE_AWESOMEBAR == component && AwesomeBarFacts.Items.OPENED_TAB_SUGGESTION_CLICKED == item -> {
             Event.OpenedTabSuggestionClicked
         }
 
-        Component.LIB_DATAPROTECT to SecurePrefsReliabilityExperiment.Companion.Actions.EXPERIMENT -> {
+        Component.LIB_DATAPROTECT == component && SecurePrefsReliabilityExperiment.Companion.Actions.EXPERIMENT == item -> {
             Event.SecurePrefsExperimentFailure(metadata?.get("javaClass") as String? ?: "null")
         }
-        Component.LIB_DATAPROTECT to SecurePrefsReliabilityExperiment.Companion.Actions.GET -> {
+        Component.LIB_DATAPROTECT == component && SecurePrefsReliabilityExperiment.Companion.Actions.GET == item -> {
             if (SecurePrefsReliabilityExperiment.Companion.Values.FAIL.v == value?.toInt()) {
                 Event.SecurePrefsGetFailure(metadata?.get("javaClass") as String? ?: "null")
             } else {
                 Event.SecurePrefsGetSuccess(value ?: "")
             }
         }
-        Component.LIB_DATAPROTECT to SecurePrefsReliabilityExperiment.Companion.Actions.WRITE -> {
+        Component.LIB_DATAPROTECT == component && SecurePrefsReliabilityExperiment.Companion.Actions.WRITE == item -> {
             if (SecurePrefsReliabilityExperiment.Companion.Values.FAIL.v == value?.toInt()) {
                 Event.SecurePrefsWriteFailure(metadata?.get("javaClass") as String? ?: "null")
             } else {
                 Event.SecurePrefsWriteSuccess
             }
         }
-        Component.LIB_DATAPROTECT to SecurePrefsReliabilityExperiment.Companion.Actions.RESET -> {
+        Component.LIB_DATAPROTECT == component && SecurePrefsReliabilityExperiment.Companion.Actions.RESET == item -> {
             Event.SecurePrefsReset
         }
 
+        Component.FEATURE_SEARCH == component && AdsTelemetry.SERP_ADD_CLICKED == item -> {
+            Event.SearchAdClicked(value!!)
+        }
+        Component.FEATURE_SEARCH == component && AdsTelemetry.SERP_SHOWN_WITH_ADDS == item -> {
+            Event.SearchWithAds(value!!)
+        }
+        Component.FEATURE_SEARCH == component && InContentTelemetry.IN_CONTENT_SEARCH == item -> {
+            Event.SearchInContent(value!!)
+        }
+        Component.FEATURE_AUTOFILL == component && AutofillFacts.Items.AUTOFILL_REQUEST == item -> {
+            val hasMatchingLogins = metadata?.get(AutofillFacts.Metadata.HAS_MATCHING_LOGINS) as Boolean?
+            if (hasMatchingLogins == true) {
+                Event.AndroidAutofillRequestWithLogins
+            } else {
+                Event.AndroidAutofillRequestWithoutLogins
+            }
+        }
+        Component.FEATURE_AUTOFILL == component && AutofillFacts.Items.AUTOFILL_SEARCH == item -> {
+            if (action == Action.SELECT) {
+                Event.AndroidAutofillSearchItemSelected
+            } else {
+                Event.AndroidAutofillSearchDisplayed
+            }
+        }
+        Component.FEATURE_AUTOFILL == component && AutofillFacts.Items.AUTOFILL_LOCK == item -> {
+            if (action == Action.CONFIRM) {
+                Event.AndroidAutofillUnlockSuccessful
+            } else {
+                Event.AndroidAutofillUnlockCanceled
+            }
+        }
+        Component.FEATURE_AUTOFILL == component && AutofillFacts.Items.AUTOFILL_CONFIRMATION == item -> {
+            if (action == Action.CONFIRM) {
+                Event.AndroidAutofillConfirmationSuccessful
+            } else {
+                Event.AndroidAutofillConfirmationCanceled
+            }
+        }
         else -> null
     }
 

@@ -12,10 +12,11 @@ import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.intent.Intents
 import androidx.test.espresso.intent.matcher.IntentMatchers
 import androidx.test.espresso.matcher.RootMatchers.isDialog
-import androidx.test.espresso.matcher.ViewMatchers.withId
-import androidx.test.espresso.matcher.ViewMatchers.withText
+import androidx.test.espresso.matcher.ViewMatchers
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withContentDescription
+import androidx.test.espresso.matcher.ViewMatchers.withId
+import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
@@ -24,13 +25,14 @@ import androidx.test.uiautomator.Until
 import org.hamcrest.CoreMatchers
 import org.junit.Assert.assertTrue
 import org.mozilla.fenix.R
+import org.mozilla.fenix.helpers.Constants.PackageName.GOOGLE_APPS_PHOTOS
 import org.mozilla.fenix.helpers.TestAssetHelper
+import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestHelper
+import org.mozilla.fenix.helpers.TestHelper.assertExternalAppOpens
+import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.helpers.click
 import org.mozilla.fenix.helpers.ext.waitNotNull
-import org.mozilla.fenix.helpers.Constants.PackageName.GOOGLE_APPS_PHOTOS
-import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
-import org.mozilla.fenix.helpers.TestHelper.packageName
 
 /**
  * Implementation of Robot Pattern for download UI handling.
@@ -42,7 +44,7 @@ class DownloadRobot {
 
     fun verifyDownloadNotificationPopup() = assertDownloadNotificationPopup()
 
-    fun verifyPhotosAppOpens() = assertPhotosOpens()
+    fun verifyPhotosAppOpens() = assertExternalAppOpens(GOOGLE_APPS_PHOTOS)
 
     fun verifyDownloadedFileName(fileName: String) {
         mDevice.findObject(UiSelector().text(fileName)).waitForExists(waitingTime)
@@ -52,14 +54,16 @@ class DownloadRobot {
     fun verifyDownloadedFileIcon() = assertDownloadedFileIcon()
 
     fun verifyEmptyDownloadsList() {
-        mDevice.findObject(UiSelector().resourceId("org.mozilla.fenix.debug:id/download_empty_view"))
+        mDevice.findObject(UiSelector().resourceId("$packageName:id/download_empty_view"))
             .waitForExists(waitingTime)
         onView(withText("No downloaded files")).check(matches(isDisplayed()))
     }
 
     fun waitForDownloadsListToExist() =
-        assertTrue(mDevice.findObject(UiSelector().resourceId("org.mozilla.fenix.debug:id/download_list"))
-            .waitForExists(waitingTime))
+        assertTrue(
+            mDevice.findObject(UiSelector().resourceId("$packageName:id/download_list"))
+                .waitForExists(waitingTime)
+        )
 
     class Transition {
         fun clickDownload(interact: DownloadRobot.() -> Unit): Transition {
@@ -129,6 +133,8 @@ private fun assertDownloadNotificationPopup() {
     mDevice.waitNotNull(Until.findObjects(By.text("Open")), TestAssetHelper.waitingTime)
     onView(withId(R.id.download_dialog_title))
         .check(matches(withText(CoreMatchers.containsString("Download completed"))))
+    onView(withId(R.id.download_dialog_filename))
+        .check(matches(ViewMatchers.isCompletelyDisplayed()))
 }
 
 private fun closePromptButton() =
@@ -141,18 +147,6 @@ private fun clickOpenButton() =
     onView(withId(R.id.download_dialog_action_button)).check(
         matches(isDisplayed())
     )
-
-private fun assertPhotosOpens() {
-    if (isPackageInstalled(GOOGLE_APPS_PHOTOS)) {
-        Intents.intended(IntentMatchers.toPackage(GOOGLE_APPS_PHOTOS))
-    } else {
-        val mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        mDevice.waitNotNull(
-            Until.findObject(By.text("Could not open file")),
-            TestAssetHelper.waitingTime
-        )
-    }
-}
 
 private fun downloadedFile(fileName: String) = onView(withText(fileName))
 

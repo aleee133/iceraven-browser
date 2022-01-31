@@ -20,8 +20,6 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import kotlinx.android.synthetic.main.fragment_saved_logins.view.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import mozilla.components.concept.menu.MenuController
 import mozilla.components.concept.menu.Orientation
 import mozilla.components.lib.state.ext.consumeFrom
@@ -29,6 +27,7 @@ import org.mozilla.fenix.BrowserDirection
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.StoreProvider
+import org.mozilla.fenix.databinding.FragmentSavedLoginsBinding
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.redirectToReAuth
 import org.mozilla.fenix.ext.settings
@@ -70,6 +69,8 @@ class SavedLoginsFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_saved_logins, container, false)
+        val binding = FragmentSavedLoginsBinding.bind(view)
+
         savedLoginsStore = StoreProvider.get(this) {
             LoginsFragmentStore(
                 createInitialLoginsListState(requireContext().settings())
@@ -99,14 +100,13 @@ class SavedLoginsFragment : Fragment() {
             )
 
         savedLoginsListView = SavedLoginsListView(
-            view.savedLoginsLayout,
+            binding.savedLoginsLayout,
             savedLoginsInteractor
         )
         savedLoginsInteractor.loadAndMapLogins()
         return view
     }
 
-    @ExperimentalCoroutinesApi
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         consumeFrom(savedLoginsStore) {
             sortingStrategyMenu.updateMenu(savedLoginsStore.state.highlightedItem)
@@ -146,10 +146,9 @@ class SavedLoginsFragment : Fragment() {
         (activity as HomeActivity).getSupportActionBarAndInflateIfNecessary().setDisplayShowTitleEnabled(true)
         sortingStrategyMenu.menuController.dismiss()
         sortLoginsMenuRoot.setOnClickListener(null)
-        setHasOptionsMenu(false)
 
         redirectToReAuth(
-            listOf(R.id.loginDetailFragment),
+            listOf(R.id.loginDetailFragment, R.id.addLoginFragment),
             findNavController().currentDestination?.id,
             R.id.savedLoginsFragment
         )
@@ -196,12 +195,15 @@ class SavedLoginsFragment : Fragment() {
     }
 
     private fun attachMenu() {
-        sortingStrategyMenu.menuController.register(object : MenuController.Observer {
-            override fun onDismiss() {
-                // Deactivate button on dismiss
-                sortLoginsMenuRoot.isActivated = false
-            }
-        }, view = sortLoginsMenuRoot)
+        sortingStrategyMenu.menuController.register(
+            object : MenuController.Observer {
+                override fun onDismiss() {
+                    // Deactivate button on dismiss
+                    sortLoginsMenuRoot.isActivated = false
+                }
+            },
+            view = sortLoginsMenuRoot
+        )
 
         sortLoginsMenuRoot.setOnClickListener {
             // Activate button on show

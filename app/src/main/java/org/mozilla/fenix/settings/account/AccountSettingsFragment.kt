@@ -22,7 +22,6 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import kotlinx.coroutines.Dispatchers.Main
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import mozilla.components.concept.sync.AccountObserver
 import mozilla.components.concept.sync.ConstellationState
@@ -85,7 +84,6 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
         requireComponents.analytics.metrics.track(Event.SyncAccountOpened)
     }
 
-    @ExperimentalCoroutinesApi
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -300,7 +298,6 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
             isChecked = syncEnginesStatus.getOrElse(SyncEngine.Bookmarks) { true }
         }
         requirePreference<CheckBoxPreference>(R.string.pref_key_sync_credit_cards).apply {
-            isVisible = FeatureFlags.creditCardsFeature
             isEnabled = syncEnginesStatus.containsKey(SyncEngine.CreditCards)
             isChecked = syncEnginesStatus.getOrElse(SyncEngine.CreditCards) { true }
         }

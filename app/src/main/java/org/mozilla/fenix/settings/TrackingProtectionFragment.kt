@@ -5,6 +5,7 @@
 package org.mozilla.fenix.settings
 
 import android.os.Bundle
+import androidx.annotation.VisibleForTesting
 import androidx.navigation.findNavController
 import androidx.preference.CheckBoxPreference
 import androidx.preference.DropDownPreference
@@ -16,7 +17,6 @@ import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.metrics.Event
 import org.mozilla.fenix.ext.components
-import org.mozilla.fenix.ext.navigateBlockingForAsyncNavGraph
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.settings
@@ -33,16 +33,23 @@ class TrackingProtectionFragment : PreferenceFragmentCompat() {
     private val exceptionsClickListener = Preference.OnPreferenceClickListener {
         val directions =
             TrackingProtectionFragmentDirections.actionTrackingProtectionFragmentToExceptionsFragment()
-        requireView().findNavController().navigateBlockingForAsyncNavGraph(directions)
+        requireView().findNavController().navigate(directions)
         true
     }
-    private lateinit var customCookies: CheckBoxPreference
-    private lateinit var customCookiesSelect: DropDownPreference
-    private lateinit var customTracking: CheckBoxPreference
-    private lateinit var customTrackingSelect: DropDownPreference
-    private lateinit var customCryptominers: CheckBoxPreference
-    private lateinit var customFingerprinters: CheckBoxPreference
-    private lateinit var customRedirectTrackers: CheckBoxPreference
+    @VisibleForTesting
+    internal lateinit var customCookies: CheckBoxPreference
+    @VisibleForTesting
+    internal lateinit var customCookiesSelect: DropDownPreference
+    @VisibleForTesting
+    internal lateinit var customTracking: CheckBoxPreference
+    @VisibleForTesting
+    internal lateinit var customTrackingSelect: DropDownPreference
+    @VisibleForTesting
+    internal lateinit var customCryptominers: CheckBoxPreference
+    @VisibleForTesting
+    internal lateinit var customFingerprinters: CheckBoxPreference
+    @VisibleForTesting
+    internal lateinit var customRedirectTrackers: CheckBoxPreference
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.tracking_protection_preferences, rootKey)
@@ -77,7 +84,7 @@ class TrackingProtectionFragment : PreferenceFragmentCompat() {
         learnMorePreference.setOnPreferenceClickListener {
             (activity as HomeActivity).openToBrowserAndLoad(
                 searchTermOrURL = SupportUtils.getGenericSumoURLForTopic
-                    (SupportUtils.SumoTopic.TRACKING_PROTECTION),
+                (SupportUtils.SumoTopic.TRACKING_PROTECTION),
                 newTab = true,
                 from = BrowserDirection.FromTrackingProtection
             )

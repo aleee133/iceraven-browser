@@ -5,10 +5,10 @@
 package org.mozilla.fenix.components
 
 import android.content.Context
-import mozilla.components.browser.session.SessionManager
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.Engine
 import mozilla.components.concept.storage.BookmarksStorage
+import mozilla.components.concept.storage.HistoryStorage
 import mozilla.components.feature.app.links.AppLinksUseCases
 import mozilla.components.feature.contextmenu.ContextMenuUseCases
 import mozilla.components.feature.downloads.DownloadsUseCases
@@ -36,27 +36,27 @@ import org.mozilla.fenix.utils.Mockable
 class UseCases(
     private val context: Context,
     private val engine: Engine,
-    private val sessionManager: SessionManager,
     private val store: BrowserStore,
     private val shortcutManager: WebAppShortcutManager,
     private val topSitesStorage: TopSitesStorage,
-    private val bookmarksStorage: BookmarksStorage
+    private val bookmarksStorage: BookmarksStorage,
+    private val historyStorage: HistoryStorage
 ) {
     /**
      * Use cases that provide engine interactions for a given browser session.
      */
-    val sessionUseCases by lazyMonitored { SessionUseCases(store, sessionManager) }
+    val sessionUseCases by lazyMonitored { SessionUseCases(store) }
 
     /**
      * Use cases that provide tab management.
      */
-    val tabsUseCases: TabsUseCases by lazyMonitored { TabsUseCases(store, sessionManager) }
+    val tabsUseCases: TabsUseCases by lazyMonitored { TabsUseCases(store) }
 
     /**
      * Use cases for managing custom tabs.
      */
     val customTabsUseCases: CustomTabsUseCases by lazyMonitored {
-        CustomTabsUseCases(sessionManager, sessionUseCases.loadUrl)
+        CustomTabsUseCases(store, sessionUseCases.loadUrl)
     }
 
     /**
@@ -65,7 +65,8 @@ class UseCases(
     val searchUseCases by lazyMonitored {
         SearchUseCases(
             store,
-            tabsUseCases
+            tabsUseCases,
+            sessionUseCases
         )
     }
 
@@ -99,5 +100,5 @@ class UseCases(
     /**
      * Use cases that provide bookmark management.
      */
-    val bookmarksUseCases by lazyMonitored { BookmarksUseCase(bookmarksStorage) }
+    val bookmarksUseCases by lazyMonitored { BookmarksUseCase(bookmarksStorage, historyStorage) }
 }

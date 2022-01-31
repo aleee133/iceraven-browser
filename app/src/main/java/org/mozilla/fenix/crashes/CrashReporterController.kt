@@ -4,7 +4,9 @@
 
 package org.mozilla.fenix.crashes
 
+import android.util.Log
 import androidx.navigation.NavController
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -12,7 +14,6 @@ import kotlinx.coroutines.launch
 import mozilla.components.lib.crash.Crash
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.Components
-import org.mozilla.fenix.components.metrics.Event
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.utils.Settings
 
@@ -23,10 +24,6 @@ class CrashReporterController(
     private val components: Components,
     private val settings: Settings
 ) {
-
-    init {
-        components.analytics.metrics.track(Event.CrashReporterOpened)
-    }
 
     /**
      * Closes the crash reporter fragment and tries to recover the session.
@@ -69,6 +66,7 @@ class CrashReporterController(
      * @param sendCrash If true, submit a crash report.
      * @return Job if report is submitted through an IO thread, null otherwise
      */
+    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
     private fun submitReportIfNecessary(sendCrash: Boolean): Job? {
         var job: Job? = null
         val didSubmitReport = if (sendCrash && settings.isCrashReportingEnabled) {
@@ -80,7 +78,7 @@ class CrashReporterController(
             false
         }
 
-        components.analytics.metrics.track(Event.CrashReporterClosed(didSubmitReport))
+        Log.i("Crash Reporter", "Report submitted: $didSubmitReport")
         return job
     }
 }

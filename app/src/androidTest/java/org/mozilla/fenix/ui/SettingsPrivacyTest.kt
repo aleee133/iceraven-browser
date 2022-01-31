@@ -9,11 +9,12 @@ import androidx.test.uiautomator.UiDevice
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
+import org.mozilla.fenix.customannotations.SmokeTest
+import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.helpers.AndroidAssetDispatcher
-import org.mozilla.fenix.helpers.HomeActivityTestRule
+import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestHelper
 import org.mozilla.fenix.helpers.TestHelper.openAppFromExternalLink
@@ -22,6 +23,7 @@ import org.mozilla.fenix.ui.robots.addToHomeScreen
 import org.mozilla.fenix.ui.robots.browserScreen
 import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
+import org.mozilla.fenix.ui.robots.settingsScreen
 
 /**
  *  Tests for verifying the main three dot menu options
@@ -36,7 +38,7 @@ class SettingsPrivacyTest {
     private val pageShortcutName = "TestShortcut"
 
     @get:Rule
-    val activityTestRule = HomeActivityTestRule()
+    val activityTestRule = HomeActivityIntentTestRule()
 
     @Before
     fun setUp() {
@@ -44,6 +46,9 @@ class SettingsPrivacyTest {
             dispatcher = AndroidAssetDispatcher()
             start()
         }
+
+        val settings = activityTestRule.activity.applicationContext.settings()
+        settings.shouldShowJumpBackInCFR = false
     }
 
     @After
@@ -176,7 +181,7 @@ class SettingsPrivacyTest {
             TestHelper.scrollToElementByText("Logins and passwords")
         }.openLoginsAndPasswordSubMenu {
             verifyDefaultView()
-            verifyDefaultValueAutofillLogins()
+            verifyDefaultValueAutofillLogins(InstrumentationRegistry.getInstrumentation().targetContext)
             verifyDefaultValueExceptions()
         }.openSavedLogins {
             verifySecurityPromptForLogins()
@@ -200,9 +205,8 @@ class SettingsPrivacyTest {
             verifySaveLoginPromptIsShown()
             // Click save to save the login
             saveLoginFromPrompt("Save")
-        }.openTabDrawer {
-        }.openNewTab {
-        }.dismissSearchBar {
+        }
+        browserScreen {
         }.openThreeDotMenu {
         }.openSettings {
             TestHelper.scrollToElementByText("Logins and passwords")
@@ -219,15 +223,14 @@ class SettingsPrivacyTest {
     @Test
     fun neverSaveLoginFromPromptTest() {
         val saveLoginTest = TestAssetHelper.getSaveLoginAsset(mockWebServer)
+        val settings = activityTestRule.activity.settings()
+        settings.shouldShowJumpBackInCFR = false
 
         navigationToolbar {
         }.enterURLAndEnterToBrowser(saveLoginTest.url) {
             verifySaveLoginPromptIsShown()
             // Don't save the login, add to exceptions
             saveLoginFromPrompt("Never save")
-        }.openTabDrawer {
-        }.openNewTab {
-        }.dismissSearchBar {
         }.openThreeDotMenu {
         }.openSettings {
         }.openLoginsAndPasswordSubMenu {
@@ -270,22 +273,24 @@ class SettingsPrivacyTest {
     }
 
     @Test
-    @Ignore("See: https://github.com/mozilla-mobile/fenix/issues/10915")
     fun openExternalLinksInPrivateTest() {
-        val defaultWebPage = TestAssetHelper.getGenericAsset(mockWebServer, 1)
+        val firstWebPage = TestAssetHelper.getGenericAsset(mockWebServer, 1)
+        val secondWebPage = TestAssetHelper.getGenericAsset(mockWebServer, 2)
 
         setOpenLinksInPrivateOn()
 
-        openAppFromExternalLink(defaultWebPage.url.toString())
+        openAppFromExternalLink(firstWebPage.url.toString())
 
         browserScreen {
         }.openTabDrawer {
             verifyPrivateModeSelected()
-        }.openNewTab { }.dismissSearchBar { }
+        }.closeTabDrawer {
+        }.goToHomescreen { }
 
         setOpenLinksInPrivateOff()
 
-        openAppFromExternalLink(defaultWebPage.url.toString())
+        // We need to open a different link, otherwise it will open the same session
+        openAppFromExternalLink(secondWebPage.url.toString())
 
         browserScreen {
         }.openTabDrawer {
@@ -294,7 +299,6 @@ class SettingsPrivacyTest {
     }
 
     @Test
-    @Ignore("See: https://github.com/mozilla-mobile/fenix/issues/10915")
     fun launchPageShortcutInPrivateModeTest() {
         val defaultWebPage = TestAssetHelper.getGenericAsset(mockWebServer, 1)
 
@@ -307,7 +311,18 @@ class SettingsPrivacyTest {
             addShortcutName(pageShortcutName)
             clickAddShortcutButton()
             clickAddAutomaticallyButton()
-        }.openHomeScreenShortcut(pageShortcutName) {
+        }
+
+        mDevice.waitForIdle()
+        // We need to close the existing tab here, to open a different session
+        restartApp(activityTestRule)
+        browserScreen {
+        }.openTabDrawer {
+            closeTab()
+        }
+
+        addToHomeScreen {
+        }.searchAndOpenHomeScreenShortcut(pageShortcutName) {
         }.openTabDrawer {
             verifyPrivateModeSelected()
         }
@@ -315,6 +330,8 @@ class SettingsPrivacyTest {
 
     @Test
     fun launchLinksInPrivateToggleOffStateDoesntChangeTest() {
+        val settings = activityTestRule.activity.applicationContext.settings()
+        settings.shouldShowJumpBackInCFR = false
         val defaultWebPage = TestAssetHelper.getGenericAsset(mockWebServer, 1)
 
         setOpenLinksInPrivateOn()
@@ -328,8 +345,7 @@ class SettingsPrivacyTest {
             clickAddShortcutButton()
             clickAddAutomaticallyButton()
         }.openHomeScreenShortcut(pageShortcutName) {
-        }.openTabDrawer {
-        }.openNewTab { }.dismissSearchBar { }
+        }.goToHomescreen { }
 
         setOpenLinksInPrivateOff()
         restartApp(activityTestRule)
@@ -339,8 +355,7 @@ class SettingsPrivacyTest {
         }.searchAndOpenHomeScreenShortcut(pageShortcutName) {
         }.openTabDrawer {
             verifyNormalModeSelected()
-        }.openNewTab {
-        }.dismissSearchBar {
+        }.closeTabDrawer {
         }.openThreeDotMenu {
         }.openSettings {
         }.openPrivateBrowsingSubMenu {
@@ -354,6 +369,7 @@ class SettingsPrivacyTest {
         }.openThreeDotMenu {
         }.openSettings {
         }.openPrivateBrowsingSubMenu {
+            cancelPrivateShortcutAddition()
             addPrivateShortcutToHomescreen()
             verifyPrivateBrowsingShortcutIcon()
         }.openPrivateBrowsingShortcut {
@@ -364,175 +380,142 @@ class SettingsPrivacyTest {
         }
     }
 
-    @Ignore("This is a stub test, ignore for now")
     @Test
-    fun toggleTrackingProtection() {
-        // Open static test website to verify TP is turned on (default): https://github.com/rpappalax/testapp
-        // (static content needs to be migrated to assets folder)
-        // Open 3dot (main) menu
-        // Select settings
-        // Toggle Tracking Protection to 'off'
-        // Back arrow to Home
-        // Open static test website to verify TP is now off: https://github.com/rpappalax/testapp
+    fun deleteBrowsingDataOptionStatesTest() {
+        homeScreen {
+        }.openThreeDotMenu {
+        }.openSettings {
+        }.openSettingsSubMenuDeleteBrowsingData {
+            verifyAllCheckBoxesAreChecked()
+            switchBrowsingHistoryCheckBox()
+            switchCachedFilesCheckBox()
+            verifyOpenTabsCheckBox(true)
+            verifyBrowsingHistoryDetails(false)
+            verifyCookiesCheckBox(true)
+            verifyCachedFilesCheckBox(false)
+            verifySitePermissionsCheckBox(true)
+            verifyDownloadsCheckBox(true)
+        }
+
+        restartApp(activityTestRule)
+
+        homeScreen {
+        }.openThreeDotMenu {
+        }.openSettings {
+        }.openSettingsSubMenuDeleteBrowsingData {
+            verifyOpenTabsCheckBox(true)
+            verifyBrowsingHistoryDetails(false)
+            verifyCookiesCheckBox(true)
+            verifyCachedFilesCheckBox(false)
+            verifySitePermissionsCheckBox(true)
+            verifyDownloadsCheckBox(true)
+            switchOpenTabsCheckBox()
+            switchBrowsingHistoryCheckBox()
+            switchCookiesCheckBox()
+            switchCachedFilesCheckBox()
+            switchSitePermissionsCheckBox()
+            switchDownloadsCheckBox()
+            verifyOpenTabsCheckBox(false)
+            verifyBrowsingHistoryDetails(true)
+            verifyCookiesCheckBox(false)
+            verifyCachedFilesCheckBox(true)
+            verifySitePermissionsCheckBox(false)
+            verifyDownloadsCheckBox(false)
+        }
+
+        restartApp(activityTestRule)
+
+        homeScreen {
+        }.openThreeDotMenu {
+        }.openSettings {
+        }.openSettingsSubMenuDeleteBrowsingData {
+            verifyOpenTabsCheckBox(false)
+            verifyBrowsingHistoryDetails(true)
+            verifyCookiesCheckBox(false)
+            verifyCachedFilesCheckBox(true)
+            verifySitePermissionsCheckBox(false)
+            verifyDownloadsCheckBox(false)
+        }
     }
 
-    @Ignore("This is a stub test, ignore for now")
     @Test
-    fun verifySitePermissions() {
-        // Open 3dot (main) menu
-        // Select settings
-        // Click on: "Site permissions"
-        // Verify sub-menu items...
-        // Click on: "Exceptions"
-        // Verify: "No site exceptions"
-        // TBD: create a site exception
-        // TBD: return to this UI and verify
-
-        //
-        // Open browser to static test website: https://github.com/rpappalax/testapp
-        // Click on "Test site permissions: geolocation"
-        // Verify that geolocation permissions dialogue is opened
-        // Verify text: "Allow <website URL> to use your geolocation?
-        // Verify toggle: 'Remember decision for this site?"
-        // Verify button: "Don't Allow"
-        // Verify button: "Allow" (default)
-        // Select "Remember decision for this site"
-        // Refresh page
-        // Click on "Test site permissions: geolocation"
-        // Verify that geolocation permissions dialogue is not opened
-        //
-        //
-        // Open browser to static test website: https://github.com/rpappalax/testapp
-        // Click on "Test site permissions: camera"
-        // Verify that camera permissions dialogue is opened
-        // Verify text: "Allow <website URL> to use your camera?
-        // Verify toggle: 'Remember decision for this site?"
-        // Verify button: "Don't Allow"
-        // Verify button: "Allow" (default)
-        // Select "Remember decision for this site"
-        // Refresh page
-        // Click on "Test site permissions: camera"
-        // Verify that camera permissions dialogue is not opened
-        //
-        //
-        // Open browser to static test website: https://github.com/rpappalax/testapp
-        // Click on "Test site permissions: microphone"
-        // Verify that microphone permissions dialogue is opened
-        // Verify text: "Allow <website URL> to use your microphone?
-        // Verify toggle: 'Remember decision for this site?"
-        // Verify button: "Don't Allow"
-        // Verify button: "Allow" (default)
-        // Select "Remember decision for this site"
-        // Refresh page
-        // Click on "Test site permissions: microphone"
-        // Verify that microphone permissions dialogue is not opened
-        //
-        //
-        // Open browser to static test website: https://github.com/rpappalax/testapp
-        // Click on "Test site permissions: notifications dialogue"
-        // Verify that notifications dialogue permissions dialogue is opened
-        // Verify text: "Allow <website URL> to send notifications?
-        // Verify toggle: 'Remember decision for this site?"
-        // Verify button: "Never"
-        // Verify button: "Always" (default)
-        // Select "Remember decision for this site"
-        // Refresh page
-        // Click on "Test site permissions: notifications dialogue"
-        // Verify that notifications dialogue permissions dialogue is not opened
-        //
-
-        // Open 3dot (main) menu
-        // Select settings
-        // Click on: "Site permissions"
-        // Select: Camera
-        // Switch from "ask to allow" (default) to "blocked"
-        // Click back arrow
-        //
-        // Select: Location
-        // Switch from "ask to allow" (default) to "blocked"
-        // Click back arrow
-        //
-        // Select: Microphone
-        // Switch from "ask to allow" (default) to "blocked"
-        // Click back arrow
-        //
-        // Select: Notification
-        // Switch from "ask to allow" (default) to "blocked"
-        // Click back arrow
-        //
-
-        // Open browser to static test website: https://github.com/rpappalax/testapp
-        // Click on "Test site permissions: camera dialogue"
-        // Verify that notifications dialogue permissions dialogue is not opened
-        //
-        // Open browser to static test website: https://github.com/rpappalax/testapp
-        // Click on "Test site permissions: geolocation dialogue"
-        // Verify that notifications dialogue permissions dialogue is not opened
-        //
-        // Open browser to static test website: https://github.com/rpappalax/testapp
-        // Click on "Test site permissions: microphone dialogue"
-        // Verify that notifications dialogue permissions dialogue is not opened
-        //
-        // Open browser to static test website: https://github.com/rpappalax/testapp
-        // Click on "Test site permissions: notifications dialogue"
-        // Verify that notifications dialogue permissions dialogue is not opened
+    fun deleteTabsDataWithNoOpenTabsTest() {
+        homeScreen {
+        }.openThreeDotMenu {
+        }.openSettings {
+        }.openSettingsSubMenuDeleteBrowsingData {
+            verifyAllCheckBoxesAreChecked()
+            selectOnlyOpenTabsCheckBox()
+            clickDeleteBrowsingDataButton()
+            confirmDeletionAndAssertSnackbar()
+        }
+        settingsScreen {
+            verifyGeneralHeading()
+        }
     }
 
-    @Ignore("This is a stub test, ignore for now")
+    @SmokeTest
     @Test
-    fun deleteBrowsingData() {
-        // Setup:
-        // Open 2 websites as 2 tabs
-        // Save as 1 collection
-        // Open 2 more websites in 2 other tabs
-        // Save as a 2nd collection
+    fun deleteTabsDataTest() {
+        val defaultWebPage = TestAssetHelper.getGenericAsset(mockWebServer, 1)
 
-        // Open 3dot (main) menu
-        // Select settings
-        // Click on "Delete browsing data"
-        // Verify correct number of tabs, addresses and collections are indicated
-        // Select all 3 checkboxes
-        // Click on "Delete browsing data button"
-        // Return to home screen and verify that all tabs, history and collection are gone
-        //
-        // Verify xxx
-        //
-        // New: If coming from  tab -> settings -> delete browsing data
-        // then expect to return to home screen
-        // If coming from tab -> home -> settings -> delete browsing data
-        // then expect return to settings (after which you can return to home manually)
+        navigationToolbar {
+        }.enterURLAndEnterToBrowser(defaultWebPage.url) {
+            mDevice.waitForIdle()
+        }.openThreeDotMenu {
+        }.openSettings {
+        }.openSettingsSubMenuDeleteBrowsingData {
+            verifyAllCheckBoxesAreChecked()
+            selectOnlyOpenTabsCheckBox()
+            clickDeleteBrowsingDataButton()
+            clickDialogCancelButton()
+            verifyOpenTabsCheckBox(true)
+            clickDeleteBrowsingDataButton()
+            confirmDeletionAndAssertSnackbar()
+        }
+        settingsScreen {
+            verifyGeneralHeading()
+        }.openSettingsSubMenuDeleteBrowsingData {
+            verifyOpenTabsDetails("0")
+        }.goBack {
+        }.goBack {
+        }.openTabDrawer {
+            verifyNoOpenTabsInNormalBrowsing()
+        }
     }
 
-    @Ignore("This is a stub test, ignore for now")
+    @SmokeTest
     @Test
-    fun verifyDataCollection() {
-        // Open 3dot (main) menu
-        // Select settings
-        // Click on "Data collection"
-        // Verify header: "Usage and technical data"
-        // Verify text: "Shares performance, usage, hardware and customization data about your browser with Mozilla"
-        //               " to help us make Firefox preview better"
-        // Verify toggle is on by default
-        // TBD:
-        // see: telemetry testcases
-    }
+    fun deleteDeleteBrowsingHistoryDataTest() {
+        val firstWebPage = TestAssetHelper.getGenericAsset(mockWebServer, 1)
+        val secondWebPage = TestAssetHelper.getGenericAsset(mockWebServer, 2)
 
-    @Ignore("This is a stub test, ignore for now")
-    @Test
-    fun openPrivacyNotice() {
-        // Open 3dot (main) menu
-        // Select settings
-        // Click on "Privacy notice"
-        // Verify redirect to: mozilla.org Privacy notice page"
-    }
-
-    @Ignore("This is a stub test, ignore for now")
-    @Test
-    fun checkLeakCanary() {
-        // Open 3dot (main) menu
-        // Select settings
-        // Click on Leak Canary toggle
-        // Verify 'dump' message
+        navigationToolbar {
+        }.enterURLAndEnterToBrowser(firstWebPage.url) {
+            mDevice.waitForIdle()
+        }.openNavigationToolbar {
+        }.enterURLAndEnterToBrowser(secondWebPage.url) {
+            mDevice.waitForIdle()
+        }.openThreeDotMenu {
+        }.openSettings {
+        }.openSettingsSubMenuDeleteBrowsingData {
+            verifyBrowsingHistoryDetails("2")
+            selectOnlyBrowsingHistoryCheckBox()
+            clickDeleteBrowsingDataButton()
+            clickDialogCancelButton()
+            verifyBrowsingHistoryDetails(true)
+            clickDeleteBrowsingDataButton()
+            confirmDeletionAndAssertSnackbar()
+            verifyBrowsingHistoryDetails("0")
+        }.goBack {
+            verifyGeneralHeading()
+        }.goBack {
+        }
+        navigationToolbar {
+        }.openThreeDotMenu {
+        }.openHistory {
+            verifyEmptyHistoryView()
+        }
     }
 }
 

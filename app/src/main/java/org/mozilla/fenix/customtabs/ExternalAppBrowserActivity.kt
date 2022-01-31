@@ -8,7 +8,6 @@ import android.content.Intent
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDirections
-import kotlinx.android.synthetic.main.activity_home.*
 import mozilla.components.browser.state.selector.findCustomTab
 import mozilla.components.browser.state.state.SessionState
 import mozilla.components.concept.engine.manifest.WebAppManifestParser
@@ -48,22 +47,7 @@ open class ExternalAppBrowserActivity : HomeActivity() {
 
     final override fun getIntentSource(intent: SafeIntent) = Event.OpenedApp.Source.CUSTOM_TAB
 
-    final override fun getIntentAllSource(intent: SafeIntent) = Event.AppReceivedIntent.Source.CUSTOM_TAB
-
     final override fun getIntentSessionId(intent: SafeIntent) = intent.getSessionId()
-
-    override fun startupTelemetryOnCreateCalled(safeIntent: SafeIntent, hasSavedInstanceState: Boolean) {
-        components.appStartupTelemetry.onExternalAppBrowserOnCreate(
-            safeIntent,
-            hasSavedInstanceState,
-            // HomeActivity is init before ExternalAppBrowserActivity so we use that time.
-            homeActivityInitTimeStampNanoSeconds,
-            rootContainer
-        )
-
-        // coldStartupDurationTelemetry.onHomeActivityOnCreate is intentionally omitted so we don't
-        // include even more unpredictable code paths in the results.
-    }
 
     override fun navigateToBrowserOnColdStart() {
         // No-op for external app

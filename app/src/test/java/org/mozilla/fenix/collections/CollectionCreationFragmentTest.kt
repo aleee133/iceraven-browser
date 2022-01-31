@@ -8,14 +8,12 @@ import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.lib.publicsuffixlist.PublicSuffixList
 import mozilla.components.support.test.robolectric.createAddedTestFragment
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -28,7 +26,6 @@ private const val SESSION_ID_MOZILLA = "0"
 private const val URL_BCC = "www.bcc.co.uk"
 private const val SESSION_ID_BCC = "1"
 
-@ExperimentalCoroutinesApi
 @RunWith(FenixRobolectricTestRunner::class)
 class CollectionCreationFragmentTest {
 
@@ -62,7 +59,5 @@ class CollectionCreationFragmentTest {
 
         assertNotNull(fragment.dialog)
         assertTrue(fragment.requireDialog().isShowing)
-        fragment.dismiss()
-        assertNull(fragment.dialog)
     }
 }

@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.components.toolbar
 
+import android.graphics.Color
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.View
@@ -13,8 +14,6 @@ import androidx.annotation.VisibleForTesting
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import kotlinx.android.extensions.LayoutContainer
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import mozilla.components.browser.domains.autocomplete.ShippedDomainsProvider
 import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.CustomTabSessionState
@@ -23,8 +22,8 @@ import mozilla.components.browser.toolbar.BrowserToolbar
 import mozilla.components.browser.toolbar.behavior.BrowserToolbarBehavior
 import mozilla.components.browser.toolbar.display.DisplayToolbar
 import mozilla.components.support.utils.URLStringUtils
-import mozilla.components.ui.tabcounter.TabCounterMenu
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.toolbar.interactor.BrowserToolbarInteractor
 import org.mozilla.fenix.customtabs.CustomTabToolbarIntegration
 import org.mozilla.fenix.customtabs.CustomTabToolbarMenu
 import org.mozilla.fenix.ext.bookmarkStorage
@@ -35,29 +34,14 @@ import org.mozilla.fenix.utils.ToolbarPopupWindow
 import java.lang.ref.WeakReference
 import mozilla.components.browser.toolbar.behavior.ToolbarPosition as MozacToolbarPosition
 
-interface BrowserToolbarViewInteractor {
-    fun onBrowserToolbarPaste(text: String)
-    fun onBrowserToolbarPasteAndGo(text: String)
-    fun onBrowserToolbarClicked()
-    fun onBrowserToolbarMenuItemTapped(item: ToolbarMenu.Item)
-    fun onTabCounterClicked()
-    fun onTabCounterMenuItemTapped(item: TabCounterMenu.Item)
-    fun onScrolled(offset: Int)
-    fun onReaderModePressed(enabled: Boolean)
-}
-
-@ExperimentalCoroutinesApi
 @SuppressWarnings("LargeClass")
 class BrowserToolbarView(
     private val container: ViewGroup,
     private val toolbarPosition: ToolbarPosition,
-    private val interactor: BrowserToolbarViewInteractor,
+    private val interactor: BrowserToolbarInteractor,
     private val customTabSession: CustomTabSessionState?,
     private val lifecycleOwner: LifecycleOwner
-) : LayoutContainer {
-
-    override val containerView: View?
-        get() = container
+) {
 
     private val settings = container.context.settings()
 
@@ -79,7 +63,7 @@ class BrowserToolbarView(
     @VisibleForTesting
     internal val isPwaTabOrTwaTab: Boolean
         get() = customTabSession?.config?.externalAppType == ExternalAppType.PROGRESSIVE_WEB_APP ||
-                customTabSession?.config?.externalAppType == ExternalAppType.TRUSTED_WEB_ACTIVITY
+            customTabSession?.config?.externalAppType == ExternalAppType.TRUSTED_WEB_ACTIVITY
 
     init {
         val isCustomTabSession = customTabSession != null
@@ -101,7 +85,6 @@ class BrowserToolbarView(
                 setToolbarBehavior()
 
                 elevation = resources.getDimension(R.dimen.browser_fragment_toolbar_elevation)
-
                 if (!isCustomTabSession) {
                     display.setUrlBackground(getDrawable(R.drawable.search_url_background))
                 }
@@ -139,14 +122,14 @@ class BrowserToolbarView(
                 display.colors = display.colors.copy(
                     text = primaryTextColor,
                     securityIconSecure = primaryTextColor,
-                    securityIconInsecure = primaryTextColor,
+                    securityIconInsecure = Color.TRANSPARENT,
                     menu = primaryTextColor,
                     hint = secondaryTextColor,
                     separator = separatorColor,
                     trackingProtection = primaryTextColor,
                     highlight = ContextCompat.getColor(
                         context,
-                        R.color.whats_new_notification_color
+                        R.color.fx_mobile_icon_color_notice
                     )
                 )
 

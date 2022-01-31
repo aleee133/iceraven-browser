@@ -8,61 +8,55 @@ import android.content.Context
 import mozilla.components.service.glean.Glean
 import mozilla.components.service.glean.private.NoExtraKeys
 import mozilla.components.support.base.log.logger.Logger
-import org.mozilla.fenix.GleanMetrics.AboutPage
 import org.mozilla.fenix.GleanMetrics.Addons
+import org.mozilla.fenix.GleanMetrics.AndroidAutofill
 import org.mozilla.fenix.GleanMetrics.AndroidKeystoreExperiment
 import org.mozilla.fenix.GleanMetrics.AppTheme
 import org.mozilla.fenix.GleanMetrics.Autoplay
 import org.mozilla.fenix.GleanMetrics.Awesomebar
-import org.mozilla.fenix.GleanMetrics.BannerOpenInApp
 import org.mozilla.fenix.GleanMetrics.BookmarksManagement
 import org.mozilla.fenix.GleanMetrics.BrowserSearch
 import org.mozilla.fenix.GleanMetrics.Collections
 import org.mozilla.fenix.GleanMetrics.ContextMenu
-import org.mozilla.fenix.GleanMetrics.ContextualHintTrackingProtection
 import org.mozilla.fenix.GleanMetrics.ContextualMenu
-import org.mozilla.fenix.GleanMetrics.CrashReporter
+import org.mozilla.fenix.GleanMetrics.CreditCards
 import org.mozilla.fenix.GleanMetrics.CustomTab
-import org.mozilla.fenix.GleanMetrics.DownloadNotification
-import org.mozilla.fenix.GleanMetrics.DownloadsMisc
-import org.mozilla.fenix.GleanMetrics.DownloadsManagement
+import org.mozilla.fenix.GleanMetrics.CustomizeHome
 import org.mozilla.fenix.GleanMetrics.ErrorPage
 import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.ExperimentsDefaultBrowser
-import org.mozilla.fenix.GleanMetrics.FindInPage
 import org.mozilla.fenix.GleanMetrics.History
 import org.mozilla.fenix.GleanMetrics.HomeMenu
 import org.mozilla.fenix.GleanMetrics.HomeScreen
 import org.mozilla.fenix.GleanMetrics.LoginDialog
 import org.mozilla.fenix.GleanMetrics.Logins
-import org.mozilla.fenix.GleanMetrics.MasterPassword
 import org.mozilla.fenix.GleanMetrics.MediaNotification
 import org.mozilla.fenix.GleanMetrics.MediaState
 import org.mozilla.fenix.GleanMetrics.Metrics
 import org.mozilla.fenix.GleanMetrics.Onboarding
 import org.mozilla.fenix.GleanMetrics.Pings
 import org.mozilla.fenix.GleanMetrics.Pocket
-import org.mozilla.fenix.GleanMetrics.PrivateBrowsingMode
-import org.mozilla.fenix.GleanMetrics.PrivateBrowsingShortcut
+import org.mozilla.fenix.GleanMetrics.Preferences
 import org.mozilla.fenix.GleanMetrics.ProgressiveWebApp
 import org.mozilla.fenix.GleanMetrics.ReaderMode
+import org.mozilla.fenix.GleanMetrics.RecentBookmarks
+import org.mozilla.fenix.GleanMetrics.RecentSearches
+import org.mozilla.fenix.GleanMetrics.RecentTabs
 import org.mozilla.fenix.GleanMetrics.SearchShortcuts
-import org.mozilla.fenix.GleanMetrics.SearchSuggestions
+import org.mozilla.fenix.GleanMetrics.SearchTerms
 import org.mozilla.fenix.GleanMetrics.SearchWidget
 import org.mozilla.fenix.GleanMetrics.SetDefaultNewtabExperiment
 import org.mozilla.fenix.GleanMetrics.SetDefaultSettingExperiment
+import org.mozilla.fenix.GleanMetrics.StartOnHome
 import org.mozilla.fenix.GleanMetrics.SyncAccount
 import org.mozilla.fenix.GleanMetrics.SyncAuth
 import org.mozilla.fenix.GleanMetrics.SyncedTabs
 import org.mozilla.fenix.GleanMetrics.Tab
 import org.mozilla.fenix.GleanMetrics.Tabs
 import org.mozilla.fenix.GleanMetrics.TabsTray
-import org.mozilla.fenix.GleanMetrics.TabsTrayCfr
-import org.mozilla.fenix.GleanMetrics.Tip
 import org.mozilla.fenix.GleanMetrics.ToolbarSettings
 import org.mozilla.fenix.GleanMetrics.TopSites
 import org.mozilla.fenix.GleanMetrics.TrackingProtection
-import org.mozilla.fenix.GleanMetrics.UserSpecifiedSearchEngines
 import org.mozilla.fenix.GleanMetrics.VoiceSearch
 import org.mozilla.fenix.ext.components
 
@@ -82,7 +76,7 @@ private class EventWrapper<T : Enum<T>>(
             if (index == 0) {
                 builder.append(part)
             } else {
-                builder.append(part[0].toUpperCase())
+                builder.append(part[0].uppercase())
                 builder.append(part.substring(1))
             }
         }
@@ -99,23 +93,19 @@ private class EventWrapper<T : Enum<T>>(
             null
         }
 
+        @Suppress("DEPRECATION")
+        // FIXME(#19967): Migrate to non-deprecated API.
         this.recorder(extras)
     }
 }
 
+@Suppress("DEPRECATION")
+// FIXME(#19967): Migrate to non-deprecated API.
 private val Event.wrapper: EventWrapper<*>?
     get() = when (this) {
         is Event.OpenedApp -> EventWrapper(
             { Events.appOpened.record(it) },
             { Events.appOpenedKeys.valueOf(it) }
-        )
-        is Event.AppReceivedIntent -> EventWrapper(
-            { Events.appReceivedIntent.record(it) },
-            { Events.appReceivedIntentKeys.valueOf(it) }
-        )
-        is Event.AppAllStartup -> EventWrapper(
-            { Events.appOpenedAllStartup.record(it) },
-            { Events.appOpenedAllStartupKeys.valueOf(it) }
         )
         is Event.SearchBarTapped -> EventWrapper(
             { Events.searchBarTapped.record(it) },
@@ -163,25 +153,9 @@ private val Event.wrapper: EventWrapper<*>?
         is Event.LoginDialogPromptNeverSave -> EventWrapper<NoExtraKeys>(
             { LoginDialog.neverSave.record(it) }
         )
-        is Event.FindInPageOpened -> EventWrapper<NoExtraKeys>(
-            { FindInPage.opened.record(it) }
-        )
-        is Event.FindInPageClosed -> EventWrapper<NoExtraKeys>(
-            { FindInPage.closed.record(it) }
-        )
-        is Event.FindInPageSearchCommitted -> EventWrapper<NoExtraKeys>(
-            { FindInPage.searchedPage.record(it) }
-        )
         is Event.ContextMenuItemTapped -> EventWrapper(
             { ContextMenu.itemTapped.record(it) },
             { ContextMenu.itemTappedKeys.valueOf(it) }
-        )
-        is Event.CrashReporterOpened -> EventWrapper<NoExtraKeys>(
-            { CrashReporter.opened.record(it) }
-        )
-        is Event.CrashReporterClosed -> EventWrapper(
-            { CrashReporter.closed.record(it) },
-            { CrashReporter.closedKeys.valueOf(it) }
         )
         is Event.BrowserMenuItemTapped -> EventWrapper(
             { Events.browserMenuAction.record(it) },
@@ -195,6 +169,9 @@ private val Event.wrapper: EventWrapper<*>?
         )
         is Event.ChangedToDefaultBrowser -> EventWrapper<NoExtraKeys>(
             { Events.defaultBrowserChanged.record(it) }
+        )
+        is Event.DefaultBrowserNotifTapped -> EventWrapper<NoExtraKeys>(
+            { Events.defaultBrowserNotifTapped.record(it) }
         )
         is Event.OpenedBookmark -> EventWrapper<NoExtraKeys>(
             { BookmarksManagement.open.record(it) }
@@ -243,9 +220,6 @@ private val Event.wrapper: EventWrapper<*>?
         )
         is Event.CustomTabsClosed -> EventWrapper<NoExtraKeys>(
             { CustomTab.closed.record(it) }
-        )
-        is Event.UriOpened -> EventWrapper<NoExtraKeys>(
-            { Events.totalUriCount.add(1) }
         )
         is Event.NormalAndPrivateUriOpened -> EventWrapper<NoExtraKeys>(
             { Events.normalAndPrivateUriCount.add(1) }
@@ -303,6 +277,10 @@ private val Event.wrapper: EventWrapper<*>?
             { Events.preferenceToggled.record(it) },
             { Events.preferenceToggledKeys.valueOf(it) }
         )
+        is Event.CustomizeHomePreferenceToggled -> EventWrapper(
+            { CustomizeHome.preferenceToggled.record(it) },
+            { CustomizeHome.preferenceToggledKeys.valueOf(it) }
+        )
         is Event.HistoryOpened -> EventWrapper<NoExtraKeys>(
             { History.opened.record(it) }
         )
@@ -329,6 +307,22 @@ private val Event.wrapper: EventWrapper<*>?
         )
         is Event.HistoryAllItemsRemoved -> EventWrapper<NoExtraKeys>(
             { History.removedAll.record(it) }
+        )
+        is Event.HistoryRecentSearchesTapped -> EventWrapper(
+            { History.recentSearchesTapped.record(it) },
+            { History.recentSearchesTappedKeys.valueOf(it) }
+        )
+        is Event.HistorySearchTermGroupTapped -> EventWrapper<NoExtraKeys>(
+            { History.searchTermGroupTapped.record(it) }
+        )
+        is Event.HistorySearchTermGroupOpenTab -> EventWrapper<NoExtraKeys>(
+            { History.searchTermGroupOpenTab.record(it) }
+        )
+        is Event.HistorySearchTermGroupRemoveTab -> EventWrapper<NoExtraKeys>(
+            { History.searchTermGroupRemoveTab.record(it) }
+        )
+        is Event.HistorySearchTermGroupRemoveAll -> EventWrapper<NoExtraKeys>(
+            { History.searchTermGroupRemoveAll.record(it) }
         )
         is Event.CollectionRenamed -> EventWrapper<NoExtraKeys>(
             { Collections.renamed.record(it) }
@@ -390,30 +384,6 @@ private val Event.wrapper: EventWrapper<*>?
         is Event.SearchWidgetVoiceSearchPressed -> EventWrapper<NoExtraKeys>(
             { SearchWidget.voiceButton.record(it) }
         )
-        is Event.PrivateBrowsingSnackbarUndoTapped -> EventWrapper<NoExtraKeys>(
-            { PrivateBrowsingMode.snackbarUndo.record(it) }
-        )
-        is Event.PrivateBrowsingNotificationTapped -> EventWrapper<NoExtraKeys>(
-            { PrivateBrowsingMode.notificationTapped.record(it) }
-        )
-        is Event.PrivateBrowsingCreateShortcut -> EventWrapper<NoExtraKeys>(
-            { PrivateBrowsingShortcut.createShortcut.record(it) }
-        )
-        is Event.PrivateBrowsingAddShortcutCFR -> EventWrapper<NoExtraKeys>(
-            { PrivateBrowsingShortcut.cfrAddShortcut.record(it) }
-        )
-        is Event.PrivateBrowsingCancelCFR -> EventWrapper<NoExtraKeys>(
-            { PrivateBrowsingShortcut.cfrCancel.record(it) }
-        )
-        is Event.PrivateBrowsingPinnedShortcutPrivateTab -> EventWrapper<NoExtraKeys>(
-            { PrivateBrowsingShortcut.pinnedShortcutPriv.record(it) }
-        )
-        is Event.PrivateBrowsingStaticShortcutTab -> EventWrapper<NoExtraKeys>(
-            { PrivateBrowsingShortcut.staticShortcutTab.record(it) }
-        )
-        is Event.PrivateBrowsingStaticShortcutPrivateTab -> EventWrapper<NoExtraKeys>(
-            { PrivateBrowsingShortcut.staticShortcutPriv.record(it) }
-        )
         is Event.WhatsNewTapped -> EventWrapper<NoExtraKeys>(
             { Events.whatsNewTapped.record(it) }
         )
@@ -437,39 +407,6 @@ private val Event.wrapper: EventWrapper<*>?
         )
         is Event.MediaPictureInPictureState -> EventWrapper<NoExtraKeys>(
             { MediaState.pictureInPicture.record(it) }
-        )
-        is Event.InAppNotificationDownloadOpen -> EventWrapper<NoExtraKeys>(
-            { DownloadNotification.inAppOpen.record(it) }
-        )
-        is Event.InAppNotificationDownloadTryAgain -> EventWrapper<NoExtraKeys>(
-            { DownloadNotification.inAppTryAgain.record(it) }
-        )
-        is Event.NotificationDownloadCancel -> EventWrapper<NoExtraKeys>(
-            { DownloadNotification.cancel.record(it) }
-        )
-        is Event.NotificationDownloadOpen -> EventWrapper<NoExtraKeys>(
-            { DownloadNotification.open.record(it) }
-        )
-        is Event.NotificationDownloadPause -> EventWrapper<NoExtraKeys>(
-            { DownloadNotification.pause.record(it) }
-        )
-        is Event.NotificationDownloadResume -> EventWrapper<NoExtraKeys>(
-            { DownloadNotification.resume.record(it) }
-        )
-        is Event.NotificationDownloadTryAgain -> EventWrapper<NoExtraKeys>(
-            { DownloadNotification.tryAgain.record(it) }
-        )
-        is Event.DownloadAdded -> EventWrapper<NoExtraKeys>(
-            { DownloadsMisc.downloadAdded.record(it) }
-        )
-        is Event.DownloadsScreenOpened -> EventWrapper<NoExtraKeys>(
-            { DownloadsManagement.downloadsScreenOpened.record(it) }
-        )
-        is Event.DownloadsItemOpened -> EventWrapper<NoExtraKeys>(
-            { DownloadsManagement.itemOpened.record(it) }
-        )
-        is Event.DownloadsItemDeleted -> EventWrapper<NoExtraKeys>(
-            { DownloadsManagement.itemDeleted.record(it) }
         )
         is Event.NotificationMediaPlay -> EventWrapper<NoExtraKeys>(
             { MediaNotification.play.record(it) }
@@ -521,18 +458,9 @@ private val Event.wrapper: EventWrapper<*>?
         is Event.EditLoginSave -> EventWrapper<NoExtraKeys>(
             { Logins.saveEditedLogin.record(it) }
         )
-        is Event.PrivateBrowsingShowSearchSuggestions -> EventWrapper<NoExtraKeys>(
-            { SearchSuggestions.enableInPrivate.record(it) }
-        )
         is Event.ToolbarPositionChanged -> EventWrapper(
             { ToolbarSettings.changedPosition.record(it) },
             { ToolbarSettings.changedPositionKeys.valueOf(it) }
-        )
-        is Event.CustomEngineAdded -> EventWrapper<NoExtraKeys>(
-            { UserSpecifiedSearchEngines.customEngineAdded.record(it) }
-        )
-        is Event.CustomEngineDeleted -> EventWrapper<NoExtraKeys>(
-            { UserSpecifiedSearchEngines.customEngineDeleted.record(it) }
         )
         is Event.SaveLoginsSettingChanged -> EventWrapper(
             { Logins.saveLoginsSettingChanged.record(it) },
@@ -543,6 +471,9 @@ private val Event.wrapper: EventWrapper<*>?
         )
         is Event.TopSiteOpenGoogle -> EventWrapper<NoExtraKeys>(
             { TopSites.openGoogleSearchAttribution.record(it) }
+        )
+        is Event.TopSiteOpenBaidu -> EventWrapper<NoExtraKeys>(
+            { TopSites.openBaiduSearchAttribution.record(it) }
         )
         is Event.TopSiteOpenFrecent -> EventWrapper<NoExtraKeys>(
             { TopSites.openFrecency.record(it) }
@@ -559,6 +490,12 @@ private val Event.wrapper: EventWrapper<*>?
         is Event.TopSiteRemoved -> EventWrapper<NoExtraKeys>(
             { TopSites.remove.record(it) }
         )
+        is Event.GoogleTopSiteRemoved -> EventWrapper<NoExtraKeys>(
+            { TopSites.googleTopSiteRemoved.record(it) }
+        )
+        is Event.BaiduTopSiteRemoved -> EventWrapper<NoExtraKeys>(
+            { TopSites.baiduTopSiteRemoved.record(it) }
+        )
         is Event.TopSiteLongPress -> EventWrapper(
             { TopSites.longPress.record(it) },
             { TopSites.longPressKeys.valueOf(it) }
@@ -567,17 +504,28 @@ private val Event.wrapper: EventWrapper<*>?
             { TopSites.swipeCarousel.record(it) },
             { TopSites.swipeCarouselKeys.valueOf(it) }
         )
-        is Event.SupportTapped -> EventWrapper<NoExtraKeys>(
-            { AboutPage.supportTapped.record(it) }
-        )
-        is Event.PrivacyNoticeTapped -> EventWrapper<NoExtraKeys>(
-            { AboutPage.privacyNoticeTapped.record(it) }
-        )
         is Event.PocketTopSiteClicked -> EventWrapper<NoExtraKeys>(
             { Pocket.pocketTopSiteClicked.record(it) }
         )
         is Event.PocketTopSiteRemoved -> EventWrapper<NoExtraKeys>(
             { Pocket.pocketTopSiteRemoved.record(it) }
+        )
+        is Event.PocketHomeRecsShown -> EventWrapper<NoExtraKeys>(
+            { Pocket.homeRecsShown.record(it) }
+        )
+        is Event.PocketHomeRecsLearnMoreClicked -> EventWrapper<NoExtraKeys>(
+            { Pocket.homeRecsLearnMoreClicked.record(it) }
+        )
+        is Event.PocketHomeRecsDiscoverMoreClicked -> EventWrapper<NoExtraKeys>(
+            { Pocket.homeRecsDiscoverClicked.record(it) }
+        )
+        is Event.PocketHomeRecsStoryClicked -> EventWrapper(
+            { Pocket.homeRecsStoryClicked.record(it) },
+            { Pocket.homeRecsStoryClickedKeys.valueOf(it) }
+        )
+        is Event.PocketHomeRecsCategoryClicked -> EventWrapper(
+            { Pocket.homeRecsCategoryClicked.record(it) },
+            { Pocket.homeRecsCategoryClickedKeys.valueOf(it) }
         )
         is Event.DarkThemeSelected -> EventWrapper(
             { AppTheme.darkThemeSelected.record(it) },
@@ -585,6 +533,9 @@ private val Event.wrapper: EventWrapper<*>?
         )
         is Event.AddonsOpenInSettings -> EventWrapper<NoExtraKeys>(
             { Addons.openAddonsInSettings.record(it) }
+        )
+        is Event.StudiesSettings -> EventWrapper<NoExtraKeys>(
+            { Preferences.studiesPreferenceEnabled.record(it) }
         )
         is Event.AddonsOpenInToolbarMenu -> EventWrapper(
             { Addons.openAddonInToolbarMenu.record(it) },
@@ -594,27 +545,8 @@ private val Event.wrapper: EventWrapper<*>?
             { Addons.openAddonSetting.record(it) },
             { Addons.openAddonSettingKeys.valueOf(it) }
         )
-        is Event.TipDisplayed -> EventWrapper(
-            { Tip.displayed.record(it) },
-            { Tip.displayedKeys.valueOf(it) }
-        )
-        is Event.TipPressed -> EventWrapper(
-            { Tip.pressed.record(it) },
-            { Tip.pressedKeys.valueOf(it) }
-        )
-        is Event.TipClosed -> EventWrapper(
-            { Tip.closed.record(it) },
-            { Tip.closedKeys.valueOf(it) }
-        )
         is Event.VoiceSearchTapped -> EventWrapper<NoExtraKeys>(
             { VoiceSearch.tapped.record(it) }
-        )
-        is Event.TabCounterMenuItemTapped -> EventWrapper(
-            { Events.tabCounterMenuAction.record(it) },
-            { Events.tabCounterMenuActionKeys.valueOf(it) }
-        )
-        is Event.OnboardingPrivateBrowsing -> EventWrapper<NoExtraKeys>(
-            { Onboarding.prefToggledPrivateBrowsing.record(it) }
         )
         is Event.OnboardingPrivacyNotice -> EventWrapper<NoExtraKeys>(
             { Onboarding.privacyNotice.record(it) }
@@ -641,33 +573,19 @@ private val Event.wrapper: EventWrapper<*>?
             { Onboarding.prefToggledToolbarPositionKeys.valueOf(it) }
         )
 
-        is Event.ContextualHintETPDisplayed -> EventWrapper<NoExtraKeys>(
-            { ContextualHintTrackingProtection.display.record(it) }
-        )
-
-        is Event.ContextualHintETPDismissed -> EventWrapper<NoExtraKeys>(
-            { ContextualHintTrackingProtection.dismiss.record(it) }
-        )
-
-        is Event.ContextualHintETPInsideTap -> EventWrapper<NoExtraKeys>(
-            { ContextualHintTrackingProtection.insideTap.record(it) }
-        )
-
-        is Event.ContextualHintETPOutsideTap -> EventWrapper<NoExtraKeys>(
-            { ContextualHintTrackingProtection.outsideTap.record(it) }
-        )
-
         is Event.TabsTrayOpened -> EventWrapper<NoExtraKeys>(
             { TabsTray.opened.record(it) }
         )
         is Event.TabsTrayClosed -> EventWrapper<NoExtraKeys>(
             { TabsTray.closed.record(it) }
         )
-        is Event.OpenedExistingTab -> EventWrapper<NoExtraKeys>(
-            { TabsTray.openedExistingTab.record(it) }
+        is Event.OpenedExistingTab -> EventWrapper(
+            { TabsTray.openedExistingTab.record(it) },
+            { TabsTray.openedExistingTabKeys.valueOf(it) }
         )
-        is Event.ClosedExistingTab -> EventWrapper<NoExtraKeys>(
-            { TabsTray.closedExistingTab.record(it) }
+        is Event.ClosedExistingTab -> EventWrapper(
+            { TabsTray.closedExistingTab.record(it) },
+            { TabsTray.closedExistingTabKeys.valueOf(it) }
         )
         is Event.TabsTrayPrivateModeTapped -> EventWrapper<NoExtraKeys>(
             { TabsTray.privateModeTapped.record(it) }
@@ -696,11 +614,55 @@ private val Event.wrapper: EventWrapper<*>?
         is Event.TabsTrayCloseAllTabsPressed -> EventWrapper<NoExtraKeys>(
             { TabsTray.closeAllTabs.record(it) }
         )
-        is Event.TabsTrayCfrDismissed -> EventWrapper<NoExtraKeys>(
-            { TabsTrayCfr.dismiss.record(it) }
+        is Event.TabsTrayRecentlyClosedPressed -> EventWrapper<NoExtraKeys>(
+            { TabsTray.inactiveTabsRecentlyClosed.record(it) }
         )
-        is Event.TabsTrayCfrTapped -> EventWrapper<NoExtraKeys>(
-            { TabsTrayCfr.goToSettings.record(it) }
+        is Event.TabsTrayInactiveTabsExpanded -> EventWrapper<NoExtraKeys>(
+            { TabsTray.inactiveTabsExpanded.record(it) }
+        )
+        is Event.TabsTrayInactiveTabsCollapsed -> EventWrapper<NoExtraKeys>(
+            { TabsTray.inactiveTabsCollapsed.record(it) }
+        )
+        is Event.TabsTrayAutoCloseDialogDismissed -> EventWrapper<NoExtraKeys>(
+            { TabsTray.autoCloseDimissed.record(it) }
+        )
+        is Event.TabsTrayAutoCloseDialogSeen -> EventWrapper<NoExtraKeys>(
+            { TabsTray.autoCloseSeen.record(it) }
+        )
+        is Event.TabsTrayAutoCloseDialogTurnOnClicked -> EventWrapper<NoExtraKeys>(
+            { TabsTray.autoCloseTurnOnClicked.record(it) }
+        )
+        is Event.TabsTrayHasInactiveTabs -> EventWrapper(
+            { TabsTray.hasInactiveTabs.record(it) },
+            { TabsTray.hasInactiveTabsKeys.valueOf(it) }
+        )
+        is Event.TabsTrayCloseAllInactiveTabs -> EventWrapper<NoExtraKeys>(
+            { TabsTray.closeAllInactiveTabs.record(it) }
+        )
+        is Event.TabsTrayCloseInactiveTab -> EventWrapper<NoExtraKeys>(
+            { TabsTray.closeInactiveTab.add(amountClosed) }
+        )
+        is Event.TabsTrayOpenInactiveTab -> EventWrapper<NoExtraKeys>(
+            { TabsTray.openInactiveTab.add() }
+        )
+        is Event.InactiveTabsSurveyOpened -> EventWrapper<NoExtraKeys>(
+            { Preferences.inactiveTabsSurveyOpened.record(it) }
+        )
+        is Event.InactiveTabsOffSurvey -> EventWrapper(
+            { Preferences.turnOffInactiveTabsSurvey.record(it) },
+            { Preferences.turnOffInactiveTabsSurveyKeys.valueOf(it) }
+        )
+        is Event.InactiveTabsCountUpdate -> EventWrapper<NoExtraKeys>(
+            { Metrics.inactiveTabsCount.set(this.count.toLong()) },
+        )
+        is Event.TabsTrayInactiveTabsCFRGotoSettings -> EventWrapper<NoExtraKeys>(
+            { TabsTray.inactiveTabsCfrSettings.record(it) }
+        )
+        is Event.TabsTrayInactiveTabsCFRDismissed -> EventWrapper<NoExtraKeys>(
+            { TabsTray.inactiveTabsCfrDismissed.record(it) }
+        )
+        is Event.TabsTrayInactiveTabsCFRIsVisible -> EventWrapper<NoExtraKeys>(
+            { TabsTray.inactiveTabsCfrVisible.record(it) }
         )
         is Event.AutoPlaySettingVisited -> EventWrapper<NoExtraKeys>(
             { Autoplay.visitedSetting.record(it) }
@@ -735,12 +697,6 @@ private val Event.wrapper: EventWrapper<*>?
             { Events.recentlyClosedTabsOpened.record(it) }
         )
 
-        is Event.MasterPasswordMigrationDisplayed -> EventWrapper<NoExtraKeys>(
-            { MasterPassword.displayed.record(it) }
-        )
-        is Event.MasterPasswordMigrationSuccess -> EventWrapper<NoExtraKeys>(
-            { MasterPassword.migration.record(it) }
-        )
         is Event.TabSettingsOpened -> EventWrapper<NoExtraKeys>(
             { Tabs.settingOpened.record(it) }
         )
@@ -761,15 +717,6 @@ private val Event.wrapper: EventWrapper<*>?
         )
         Event.HaveNoOpenTabs -> EventWrapper<NoExtraKeys>(
             { Metrics.hasOpenTabs.set(false) }
-        )
-        is Event.BannerOpenInAppDisplayed -> EventWrapper<NoExtraKeys>(
-            { BannerOpenInApp.displayed.record(it) }
-        )
-        is Event.BannerOpenInAppDismissed -> EventWrapper<NoExtraKeys>(
-            { BannerOpenInApp.dismissed.record(it) }
-        )
-        is Event.BannerOpenInAppGoToSettings -> EventWrapper<NoExtraKeys>(
-            { BannerOpenInApp.goToSettings.record(it) }
         )
         is Event.SyncedTabSuggestionClicked -> EventWrapper<NoExtraKeys>(
             { SyncedTabs.syncedTabsSuggestionClicked.record(it) }
@@ -832,6 +779,137 @@ private val Event.wrapper: EventWrapper<*>?
         is Event.HomeScreenDisplayed -> EventWrapper<NoExtraKeys>(
             { HomeScreen.homeScreenDisplayed.record(it) }
         )
+        is Event.HomeScreenViewCount -> EventWrapper<NoExtraKeys>(
+            { HomeScreen.homeScreenViewCount.add() }
+        )
+        is Event.HomeScreenCustomizedHomeClicked -> EventWrapper<NoExtraKeys>(
+            { HomeScreen.customizeHomeClicked.record(it) }
+        )
+        is Event.TabViewSettingChanged -> EventWrapper(
+            { Events.tabViewChanged.record(it) },
+            { Events.tabViewChangedKeys.valueOf(it) }
+        )
+
+        is Event.BrowserToolbarHomeButtonClicked -> EventWrapper<NoExtraKeys>(
+            { Events.browserToolbarHomeTapped.record(it) }
+        )
+
+        is Event.StartOnHomeEnterHomeScreen -> EventWrapper<NoExtraKeys>(
+            { StartOnHome.enterHomeScreen.record(it) }
+        )
+
+        is Event.StartOnHomeOpenTabsTray -> EventWrapper<NoExtraKeys>(
+            { StartOnHome.openTabsTray.record(it) }
+        )
+
+        is Event.OpenRecentTab -> EventWrapper<NoExtraKeys>(
+            { RecentTabs.recentTabOpened.record(it) }
+        )
+
+        is Event.OpenInProgressMediaTab -> EventWrapper<NoExtraKeys>(
+            { RecentTabs.inProgressMediaTabOpened.record(it) }
+        )
+
+        is Event.ShowAllRecentTabs -> EventWrapper<NoExtraKeys>(
+            { RecentTabs.showAllClicked.record(it) }
+        )
+
+        is Event.RecentTabsSectionIsVisible -> EventWrapper<NoExtraKeys>(
+            { RecentTabs.sectionVisible.set(true) }
+        )
+
+        is Event.RecentTabsSectionIsNotVisible -> EventWrapper<NoExtraKeys>(
+            { RecentTabs.sectionVisible.set(false) }
+        )
+
+        is Event.BookmarkClicked -> EventWrapper<NoExtraKeys>(
+            { RecentBookmarks.bookmarkClicked.add() }
+        )
+
+        is Event.ShowAllBookmarks -> EventWrapper<NoExtraKeys>(
+            { RecentBookmarks.showAllBookmarks.add() }
+        )
+
+        is Event.RecentSearchesGroupDeleted -> EventWrapper<NoExtraKeys>(
+            { RecentSearches.groupDeleted.record(it) }
+        )
+
+        is Event.RecentBookmarksShown -> EventWrapper<NoExtraKeys>(
+            { RecentBookmarks.shown.record(it) }
+        )
+
+        is Event.RecentBookmarkCount -> EventWrapper<NoExtraKeys>(
+            { RecentBookmarks.recentBookmarksCount.set(this.count.toLong()) },
+        )
+
+        is Event.AndroidAutofillRequestWithLogins -> EventWrapper<NoExtraKeys>(
+            { AndroidAutofill.requestMatchingLogins.record(it) }
+        )
+        is Event.AndroidAutofillRequestWithoutLogins -> EventWrapper<NoExtraKeys>(
+            { AndroidAutofill.requestNoMatchingLogins.record(it) }
+        )
+        is Event.AndroidAutofillSearchDisplayed -> EventWrapper<NoExtraKeys>(
+            { AndroidAutofill.searchDisplayed.record(it) }
+        )
+        is Event.AndroidAutofillSearchItemSelected -> EventWrapper<NoExtraKeys>(
+            { AndroidAutofill.searchItemSelected.record(it) }
+        )
+        is Event.AndroidAutofillUnlockCanceled -> EventWrapper<NoExtraKeys>(
+            { AndroidAutofill.unlockCancelled.record(it) }
+        )
+        is Event.AndroidAutofillUnlockSuccessful -> EventWrapper<NoExtraKeys>(
+            { AndroidAutofill.unlockSuccessful.record(it) }
+        )
+        is Event.AndroidAutofillConfirmationCanceled -> EventWrapper<NoExtraKeys>(
+            { AndroidAutofill.confirmCancelled.record(it) }
+        )
+        is Event.AndroidAutofillConfirmationSuccessful -> EventWrapper<NoExtraKeys>(
+            { AndroidAutofill.confirmSuccessful.record(it) }
+        )
+        is Event.CreditCardSaved -> EventWrapper<NoExtraKeys>(
+            { CreditCards.saved.add() }
+        )
+        is Event.CreditCardDeleted -> EventWrapper<NoExtraKeys>(
+            { CreditCards.deleted.add() }
+        )
+        is Event.CreditCardModified -> EventWrapper<NoExtraKeys>(
+            { CreditCards.modified.record(it) }
+        )
+        is Event.CreditCardFormDetected -> EventWrapper<NoExtraKeys>(
+            { CreditCards.formDetected.record(it) }
+        )
+        is Event.CreditCardAutofillPromptShown -> EventWrapper<NoExtraKeys>(
+            { CreditCards.autofillPromptShown.record(it) }
+        )
+        is Event.CreditCardAutofillPromptExpanded -> EventWrapper<NoExtraKeys>(
+            { CreditCards.autofillPromptExpanded.record(it) }
+        )
+        is Event.CreditCardAutofillPromptDismissed -> EventWrapper<NoExtraKeys>(
+            { CreditCards.autofillPromptDismissed.record(it) }
+        )
+        is Event.CreditCardAutofilled -> EventWrapper<NoExtraKeys>(
+            { CreditCards.autofilled.record(it) }
+        )
+        is Event.CreditCardManagementAddTapped -> EventWrapper<NoExtraKeys>(
+            { CreditCards.managementAddTapped.record(it) }
+        )
+        is Event.CreditCardManagementCardTapped -> EventWrapper<NoExtraKeys>(
+            { CreditCards.managementCardTapped.record(it) }
+        )
+        is Event.SearchTermGroupCount -> EventWrapper(
+            { SearchTerms.numberOfSearchTermGroup.record(it) },
+            { SearchTerms.numberOfSearchTermGroupKeys.valueOf(it) }
+        )
+        is Event.AverageTabsPerSearchTermGroup -> EventWrapper(
+            { SearchTerms.averageTabsPerGroup.record(it) },
+            { SearchTerms.averageTabsPerGroupKeys.valueOf(it) }
+        )
+        is Event.SearchTermGroupSizeDistribution -> EventWrapper<NoExtraKeys>(
+            { SearchTerms.groupSizeDistribution.accumulateSamples(this.groupSizes.toLongArray()) },
+        )
+        is Event.JumpBackInGroupTapped -> EventWrapper<NoExtraKeys>(
+            { SearchTerms.jumpBackInGroupTapped.record(it) }
+        )
 
         // Don't record other events in Glean:
         is Event.AddBookmark -> null
@@ -893,9 +971,4 @@ class GleanMetricsService(
     override fun shouldTrack(event: Event): Boolean {
         return event.wrapper != null
     }
-}
-
-// Helper function for making our booleans fit into the string list formatting
-fun Boolean.toStringList(): List<String> {
-    return listOf(this.toString())
 }

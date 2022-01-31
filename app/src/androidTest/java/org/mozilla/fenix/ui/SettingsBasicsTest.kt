@@ -10,14 +10,17 @@ import androidx.test.uiautomator.UiDevice
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.FenixApplication
+import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.AndroidAssetDispatcher
+import org.mozilla.fenix.helpers.FeatureSettingsHelper
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.getLoremIpsumAsset
+import org.mozilla.fenix.helpers.TestHelper.restartApp
+import org.mozilla.fenix.ui.robots.browserScreen
 import org.mozilla.fenix.ui.robots.checkTextSizeOnWebsite
 import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
@@ -32,6 +35,7 @@ class SettingsBasicsTest {
 
     private val mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     private lateinit var mockWebServer: MockWebServer
+    private val featureSettingsHelper = FeatureSettingsHelper()
 
     @get:Rule
     val activityIntentTestRule = HomeActivityIntentTestRule()
@@ -42,11 +46,16 @@ class SettingsBasicsTest {
             dispatcher = AndroidAssetDispatcher()
             start()
         }
+
+        featureSettingsHelper.setJumpBackCFREnabled(false)
     }
 
     @After
     fun tearDown() {
         mockWebServer.shutdown()
+
+        // resetting modified features enabled setting to default
+        featureSettingsHelper.resetAllFeatureFlags()
     }
 
     private fun getUiTheme(): Boolean {
@@ -61,33 +70,33 @@ class SettingsBasicsTest {
     }
 
     @Test
-    // Walks through settings menu and sub-menus to ensure all items are present
-    fun settingsMenuBasicsItemsTests() {
+    fun settingsGeneralItemsTests() {
         homeScreen {
         }.openThreeDotMenu {
         }.openSettings {
-            verifyBasicsHeading()
-            verifySearchEngineButton()
-            verifyDefaultBrowserItem()
-            verifyTabsItem()
-            // drill down to submenu
+            verifySettingsToolbar()
+            verifyGeneralHeading()
+            verifySearchButton()
+            verifyTabsButton()
+            verifyHomepageButton()
+            verifyCustomizeButton()
+            verifyLoginsAndPasswordsButton()
+            verifyCreditCardsButton()
+            verifyAccessibilityButton()
+            verifyLanguageButton()
+            verifySetAsDefaultBrowserButton()
+        }
+    }
+
+    @Test
+    fun searchSettingsItemsTest() {
+        homeScreen {
+        }.openThreeDotMenu {
+        }.openSettings {
         }.openSearchSubMenu {
+            verifySearchToolbar()
             verifyDefaultSearchEngineHeader()
             verifySearchEngineList()
-            verifyShowSearchSuggestions()
-            verifyShowSearchShortcuts()
-
-            verifyShowClipboardSuggestions()
-            verifySearchBrowsingHistory()
-            verifySearchBookmarks()
-        }.goBack {
-        }.openCustomizeSubMenu {
-            verifyThemes()
-        }.goBack {
-        }.openAccessibilitySubMenu {
-            verifyAutomaticFontSizingMenuItems()
-        }.goBack {
-            // drill down to submenu
         }
     }
 
@@ -134,7 +143,6 @@ class SettingsBasicsTest {
         }
     }
 
-    @Ignore("Failing, see: https://github.com/mozilla-mobile/fenix/issues/19016")
     @Test
     fun changeThemeSetting() {
         // Goes through the settings and changes the default search engine, then verifies it changes.
@@ -150,18 +158,6 @@ class SettingsBasicsTest {
         }
     }
 
-    @Test
-    fun changeCloseTabsSetting() {
-        // Goes through the settings and verified the close tabs setting options.
-        homeScreen {
-        }.openThreeDotMenu {
-        }.openSettings {
-        }.openTabsSubMenu {
-            verifyOptions()
-        }
-    }
-
-    @Ignore("Failing, see: https://github.com/mozilla-mobile/fenix/issues/18986")
     @Test
     fun changeAccessibiltySettings() {
         // Goes through the settings and changes the default text on a webpage, then verifies if the text has changed.
@@ -184,9 +180,6 @@ class SettingsBasicsTest {
         }.openNavigationToolbar {
         }.enterURLAndEnterToBrowser(webpage) {
             checkTextSizeOnWebsite(textSizePercentage, fenixApp.components)
-        }.openTabDrawer {
-        }.openNewTab {
-        }.dismissSearchBar {
         }.openThreeDotMenu {
         }.openSettings {
         }.openAccessibilitySubMenu {
@@ -195,15 +188,96 @@ class SettingsBasicsTest {
         }
     }
 
+    @SmokeTest
     @Test
-    fun changeDefaultBrowserSetting() {
-        // Opens settings and toggles the default browser setting to on. The device settings open and allows the user to set a default browser.
+    fun jumpBackInOptionTest() {
+        val genericURL = getGenericAsset(mockWebServer, 1)
+
+        navigationToolbar {
+        }.enterURLAndEnterToBrowser(genericURL.url) {
+            mDevice.waitForIdle()
+        }.goToHomescreen {
+            verifyJumpBackInSectionIsDisplayed()
+        }.openThreeDotMenu {
+        }.openCustomizeHome {
+            clickJumpBackInButton()
+        }.goBack {
+            verifyJumpBackInSectionIsNotDisplayed()
+        }
+    }
+
+    @SmokeTest
+    @Test
+    fun recentBookmarksOptionTest() {
+        val genericURL = getGenericAsset(mockWebServer, 1)
+
+        navigationToolbar {
+        }.enterURLAndEnterToBrowser(genericURL.url) {
+            mDevice.waitForIdle()
+        }.openThreeDotMenu {
+        }.bookmarkPage {
+        }.goToHomescreen {
+            verifyRecentBookmarksSectionIsDisplayed()
+        }.openThreeDotMenu {
+        }.openCustomizeHome {
+            clickRecentBookmarksButton()
+        }.goBack {
+            verifyRecentBookmarksSectionIsNotDisplayed()
+        }
+    }
+
+    @SmokeTest
+    @Test
+    fun startOnHomepageTest() {
+        val genericURL = getGenericAsset(mockWebServer, 1)
+
+        navigationToolbar {
+        }.enterURLAndEnterToBrowser(genericURL.url) {
+            mDevice.waitForIdle()
+        }.openThreeDotMenu {
+        }.openSettings {
+        }.openHomepageSubMenu {
+            clickStartOnHomepageButton()
+        }
+
+        restartApp(activityIntentTestRule)
+
+        homeScreen {
+            verifyHomeScreen()
+        }
+    }
+
+    @SmokeTest
+    @Test
+    fun startOnLastTabTest() {
+        val firstWebPage = getGenericAsset(mockWebServer, 1)
+
         homeScreen {
         }.openThreeDotMenu {
         }.openSettings {
-            verifyDefaultBrowserIsDisaled()
-            clickDefaultBrowserSwitch()
-            verifyAndroidDefaultAppsMenuAppears()
+        }.openHomepageSubMenu {
+            clickStartOnHomepageButton()
+        }
+
+        restartApp(activityIntentTestRule)
+
+        homeScreen {
+            verifyHomeScreen()
+        }
+
+        navigationToolbar {
+        }.enterURLAndEnterToBrowser(firstWebPage.url) {
+            mDevice.waitForIdle()
+        }.goToHomescreen {
+        }.openThreeDotMenu {
+        }.openCustomizeHome {
+            clickStartOnLastTabButton()
+        }
+
+        restartApp(activityIntentTestRule)
+
+        browserScreen {
+            verifyUrl(firstWebPage.url.toString())
         }
     }
 }

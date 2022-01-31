@@ -21,11 +21,11 @@ class TestComponents(private val context: Context) : Components(context) {
         UseCases(
             context,
             core.engine,
-            core.sessionManager,
             core.store,
             core.webAppShortcutManager,
             core.topSitesStorage,
-            core.bookmarksStorage
+            core.bookmarksStorage,
+            core.historyStorage
         )
     }
     override val intentProcessors by lazy { mockk<IntentProcessors>(relaxed = true) }

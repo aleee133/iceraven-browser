@@ -10,11 +10,8 @@ import android.graphics.Bitmap
 import android.widget.EditText
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.NoMatchingViewException
 import androidx.test.espresso.action.ViewActions
 import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.action.ViewActions.swipeLeft
-import androidx.test.espresso.action.ViewActions.swipeRight
 import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.contrib.RecyclerViewActions.actionOnItem
@@ -29,7 +26,6 @@ import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.By.text
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject
 import androidx.test.uiautomator.UiScrollable
@@ -38,7 +34,6 @@ import androidx.test.uiautomator.Until
 import androidx.test.uiautomator.Until.findObject
 import junit.framework.TestCase.assertTrue
 import mozilla.components.browser.state.state.searchEngines
-import mozilla.components.support.ktx.android.content.appName
 import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.instanceOf
@@ -48,6 +43,8 @@ import org.junit.Assert
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
+import org.mozilla.fenix.helpers.TestHelper.appContext
+import org.mozilla.fenix.helpers.TestHelper.appName
 import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.helpers.TestHelper.scrollToElementByText
 import org.mozilla.fenix.helpers.click
@@ -63,10 +60,10 @@ import org.mozilla.fenix.ui.util.STRING_ONBOARDING_TRACKING_PROTECTION_HEADER
  */
 class HomeScreenRobot {
     val privateSessionMessage =
-        "${appContext.appName} clears your search and browsing history from private tabs when you close them" +
-                " or quit the app. While this doesn’t make you anonymous to websites or your internet" +
-                " service provider, it makes it easier to keep what you do online private from anyone" +
-                " else who uses this device."
+        "$appName clears your search and browsing history from private tabs when you close them" +
+            " or quit the app. While this doesn’t make you anonymous to websites or your internet" +
+            " service provider, it makes it easier to keep what you do online private from anyone" +
+            " else who uses this device."
 
     fun verifyNavigationToolbar() = assertNavigationToolbar()
     fun verifyFocusedNavigationToolbar() = assertFocusedNavigationToolbar()
@@ -119,126 +116,23 @@ class HomeScreenRobot {
     fun verifyExistingTopSitesTabs(title: String) = assertExistingTopSitesTabs(title)
     fun verifyTopSiteContextMenuItems() = assertTopSiteContextMenuItems()
 
-    // Collections element
-    fun clickCollectionThreeDotButton() {
-        collectionThreeDotButton().click()
-        mDevice.waitNotNull(findObject(text("Delete collection")), waitingTime)
-    }
+    fun verifyJumpBackInSectionIsDisplayed() = assertJumpBackInSectionIsDisplayed()
+    fun verifyJumpBackInSectionIsNotDisplayed() = assertJumpBackInSectionIsNotDisplayed()
+    fun verifyRecentBookmarksSectionIsDisplayed() = assertRecentBookmarksSectionIsDisplayed()
+    fun verifyRecentBookmarksSectionIsNotDisplayed() = assertRecentBookmarksSectionIsNotDisplayed()
 
-    fun selectOpenTabs() {
-        onView(allOf(withText("Open tabs"))).click()
-    }
-
-    fun selectRenameCollection() {
-        onView(allOf(withText("Rename collection"))).click()
-        mDevice.waitNotNull(findObject(text("Rename collection")))
-    }
-
-    fun selectAddTabToCollection() {
-        onView(allOf(withText("Add tab"))).click()
-        mDevice.waitNotNull(findObject(text("Select Tabs")))
-    }
-
-    fun selectDeleteCollection() {
-        onView(allOf(withText("Delete collection"))).click()
-        mDevice.waitNotNull(findObject(By.res("android:id/message")), waitingTime)
-    }
-
-    fun confirmDeleteCollection() {
-        onView(allOf(withText("DELETE"))).click()
-        mDevice.waitNotNull(
-            findObject(By.res("$packageName:id/no_collections_header")),
-            waitingTime
-        )
-    }
-
-    fun verifyCollectionIsDisplayed(title: String) {
-        mDevice.findObject(UiSelector().text(title)).waitForExists(waitingTime)
-        collectionTitle(title).check(matches(isDisplayed()))
+    // Collections elements
+    fun verifyCollectionIsDisplayed(title: String, collectionExists: Boolean = true) {
+        if (collectionExists) {
+            scrollToElementByText(title)
+            assertTrue(mDevice.findObject(UiSelector().text(title)).waitForExists(waitingTime))
+        } else {
+            scrollToElementByText("Collections")
+            assertTrue(mDevice.findObject(UiSelector().text(title)).waitUntilGone(waitingTime))
+        }
     }
 
     fun verifyCollectionIcon() = onView(withId(R.id.collection_icon)).check(matches(isDisplayed()))
-
-    fun expandCollection(title: String) {
-        try {
-            mDevice.waitNotNull(findObject(text(title)), waitingTime)
-            collectionTitle(title).click()
-        } catch (e: NoMatchingViewException) {
-            scrollToElementByText(title)
-        }
-    }
-
-    fun collapseCollection(title: String) {
-        try {
-            mDevice.waitNotNull(findObject(text(title)), waitingTime)
-            onView(allOf(withId(R.id.chevron), hasSibling(withText(title)))).click()
-        } catch (e: NoMatchingViewException) {
-            scrollToElementByText(title)
-        }
-    }
-
-    fun verifyTabSavedInCollection(title: String, visible: Boolean = true) {
-        try {
-            collectionItem(title)
-                .check(
-                    if (visible) matches(isDisplayed()) else doesNotExist()
-                )
-        } catch (e: NoMatchingViewException) {
-            scrollToElementByText(title)
-        }
-    }
-
-    fun verifyCollectionTabLogo() =
-        onView(withId(R.id.favicon)).check(matches(isDisplayed()))
-
-    fun verifyCollectionTabUrl() =
-        onView(withId(R.id.caption)).check(matches(isDisplayed()))
-
-    fun verifyShareCollectionButtonIsVisible(visible: Boolean) {
-        shareCollectionButton()
-            .check(
-                if (visible) matches(withEffectiveVisibility(Visibility.VISIBLE))
-                else matches(withEffectiveVisibility(Visibility.GONE))
-            )
-    }
-
-    fun verifyCollectionMenuIsVisible(visible: Boolean) {
-        collectionThreeDotButton()
-            .check(
-                if (visible) matches(withEffectiveVisibility(Visibility.VISIBLE))
-                else matches(withEffectiveVisibility(Visibility.GONE))
-            )
-    }
-
-    fun verifyCollectionItemRemoveButtonIsVisible(title: String, visible: Boolean) {
-        removeTabFromCollectionButton(title)
-            .check(
-                if (visible) matches(withEffectiveVisibility(Visibility.VISIBLE))
-                else doesNotExist()
-            )
-    }
-
-    fun verifyShareTabsOverlay() = assertShareTabsOverlay()
-
-    fun clickShareCollectionButton() = onView(withId(R.id.collection_share_button)).click()
-
-    fun removeTabFromCollection(title: String) = removeTabFromCollectionButton(title).click()
-
-    fun swipeCollectionItemRight(title: String) {
-        try {
-            collectionItem(title).perform(swipeRight())
-        } catch (e: NoMatchingViewException) {
-            scrollToElementByText(title)
-        }
-    }
-
-    fun swipeCollectionItemLeft(title: String) {
-        try {
-            collectionItem(title).perform(swipeLeft())
-        } catch (e: NoMatchingViewException) {
-            scrollToElementByText(title)
-        }
-    }
 
     fun togglePrivateBrowsingModeOnOff() {
         onView(ViewMatchers.withResourceName("privateBrowsingButton"))
@@ -255,10 +149,13 @@ class HomeScreenRobot {
         mDevice.waitNotNull(findObject(By.text(expectedText)), waitingTime)
     }
 
-    fun snackBarButtonClick(expectedText: String) {
-        onView(allOf(withId(R.id.snackbar_btn), withText(expectedText))).check(
-            matches(withEffectiveVisibility(Visibility.VISIBLE))
-        ).perform(click())
+    fun clickUndoCollectionDeletion(expectedText: String) {
+        onView(
+            allOf(
+                withId(R.id.snackbar_btn),
+                withText(expectedText)
+            )
+        ).click()
     }
 
     class Transition {
@@ -279,17 +176,25 @@ class HomeScreenRobot {
         }
 
         fun openThreeDotMenu(interact: ThreeDotMenuMainRobot.() -> Unit): ThreeDotMenuMainRobot.Transition {
-            mDevice.waitNotNull(Until.findObject(By.res("$packageName:id/menuButton")), waitingTime)
-            threeDotButton().perform(click())
+            // Issue: https://github.com/mozilla-mobile/fenix/issues/21578
+            try {
+                mDevice.waitNotNull(
+                    Until.findObject(By.res("$packageName:id/menuButton")),
+                    waitingTime
+                )
+            } catch (e: AssertionError) {
+                mDevice.pressBack()
+            } finally {
+                threeDotButton().perform(click())
+            }
 
             ThreeDotMenuMainRobot().interact()
             return ThreeDotMenuMainRobot.Transition()
         }
 
         fun openSearch(interact: SearchRobot.() -> Unit): SearchRobot.Transition {
-            mDevice.findObject(UiSelector().resourceId("$packageName:id/toolbar"))
-                .waitForExists(waitingTime)
-            navigationToolbar().perform(click())
+            navigationToolbar().waitForExists(waitingTime)
+            navigationToolbar().click()
 
             SearchRobot().interact()
             return SearchRobot.Transition()
@@ -316,7 +221,7 @@ class HomeScreenRobot {
         }
 
         fun triggerPrivateBrowsingShortcutPrompt(interact: AddToHomeScreenRobot.() -> Unit): AddToHomeScreenRobot.Transition {
-        // Loop to press the PB icon for 5 times to display the Add the Private Browsing Shortcut CFR
+            // Loop to press the PB icon for 5 times to display the Add the Private Browsing Shortcut CFR
             for (i in 1..5) {
                 mDevice.findObject(UiSelector().resourceId("$packageName:id/privateBrowsingButton"))
                     .waitForExists(
@@ -338,7 +243,7 @@ class HomeScreenRobot {
         fun openNavigationToolbar(interact: NavigationToolbarRobot.() -> Unit): NavigationToolbarRobot.Transition {
             mDevice.findObject(UiSelector().resourceId("$packageName:id/toolbar"))
                 .waitForExists(waitingTime)
-            navigationToolbar().perform(click())
+            navigationToolbar().click()
 
             NavigationToolbarRobot().interact()
             return NavigationToolbarRobot.Transition()
@@ -415,6 +320,19 @@ class HomeScreenRobot {
             TabDrawerRobot().interact()
             return TabDrawerRobot.Transition()
         }
+
+        fun expandCollection(title: String, interact: CollectionRobot.() -> Unit): CollectionRobot.Transition {
+            // Depending on the screen dimensions collections might report as visible on screen
+            // but actually have the bottom toolbar above so interactions with collections might fail.
+            // As a quick solution we'll try scrolling to the element below collection on the homescreen
+            // so that they are displayed above in their entirety.
+            scrollToElementByText(appContext.getString(R.string.pocket_stories_header_1))
+
+            collectionTitle(title).click()
+
+            CollectionRobot().interact()
+            return CollectionRobot.Transition()
+        }
     }
 }
 
@@ -424,7 +342,6 @@ fun homeScreen(interact: HomeScreenRobot.() -> Unit): HomeScreenRobot.Transition
 }
 
 val mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-val appContext = InstrumentationRegistry.getInstrumentation().targetContext
 
 private fun homeScreenList() =
     UiScrollable(
@@ -441,10 +358,9 @@ private fun assertKeyboardVisibility(isExpectedToBeVisible: Boolean) =
             .contains("mInputShown=true")
     )
 
-private fun navigationToolbar() = onView(withId(R.id.toolbar))
+private fun navigationToolbar() = mDevice.findObject(UiSelector().resourceId("$packageName:id/toolbar"))
 
-private fun assertNavigationToolbar() =
-    navigationToolbar().check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
+private fun assertNavigationToolbar() = assertTrue(navigationToolbar().waitForExists(waitingTime))
 
 private fun assertFocusedNavigationToolbar() =
     onView(allOf(withHint("Search or enter address")))
@@ -453,7 +369,7 @@ private fun assertFocusedNavigationToolbar() =
 private fun assertHomeScreen() {
     mDevice.findObject(UiSelector().resourceId("$packageName:id/homeLayout")).waitForExists(waitingTime)
     onView(ViewMatchers.withResourceName("homeLayout"))
-    .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
+        .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
 }
 
 private fun assertHomeMenu() = onView(ViewMatchers.withResourceName("menuButton"))
@@ -480,7 +396,8 @@ private fun assertCollectionsHeader() =
 private fun assertNoCollectionsText() =
     onView(
         withText(
-            containsString("Collect the things that matter to you.\n" +
+            containsString(
+                "Collect the things that matter to you.\n" +
                     "Group together similar searches, sites, and tabs for quick access later."
             )
         )
@@ -510,7 +427,7 @@ private fun verifySearchEngineIcon(searchEngineName: String) {
 
 // First Run elements
 private fun assertWelcomeHeader() =
-    onView(allOf(withText("Welcome to ${appContext.appName}!")))
+    onView(allOf(withText("Welcome to $appName!")))
         .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
 
 private fun assertStartSyncHeader() {
@@ -597,7 +514,7 @@ private fun assertYourPrivacyText() {
     onView(
         allOf(
             withText(
-                "We’ve designed ${appContext.appName} to give you control over what you share online and what you share with us."
+                "We’ve designed $appName to give you control over what you share online and what you share with us."
             )
         )
     )
@@ -637,9 +554,6 @@ private fun assertPrivateSessionMessage() =
     onView(withId(R.id.private_session_description))
         .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
 
-private fun collectionThreeDotButton() =
-    onView(allOf(withId(R.id.collection_overflow_button)))
-
 private fun collectionTitle(title: String) =
     onView(allOf(withId(R.id.collection_title), withText(title)))
 
@@ -669,31 +583,37 @@ private fun assertTopSiteContextMenuItems() {
     )
 }
 
-private fun assertShareTabsOverlay() {
-    onView(withId(R.id.shared_site_list)).check(matches(isDisplayed()))
-    onView(withId(R.id.share_tab_title)).check(matches(isDisplayed()))
-    onView(withId(R.id.share_tab_favicon)).check(matches(isDisplayed()))
-    onView(withId(R.id.share_tab_url)).check(matches(isDisplayed()))
-}
+private fun assertJumpBackInSectionIsDisplayed() = jumpBackInSection().check(matches(isDisplayed()))
+
+private fun assertJumpBackInSectionIsNotDisplayed() = jumpBackInSection().check(doesNotExist())
+
+private fun assertRecentBookmarksSectionIsDisplayed() =
+    recentBookmarksSection().check(matches(isDisplayed()))
+
+private fun assertRecentBookmarksSectionIsNotDisplayed() =
+    recentBookmarksSection().check(doesNotExist())
 
 private fun privateBrowsingButton() = onView(withId(R.id.privateBrowsingButton))
 
-private fun collectionItem(title: String) =
-    onView(allOf(withId(R.id.label), withText(title)))
-
 private fun saveTabsToCollectionButton() = onView(withId(R.id.add_tabs_to_collections_button))
 
-private fun shareCollectionButton() = onView(withId(R.id.collection_share_button))
+private fun tabsCounter() = onView(withId(R.id.tab_button))
 
-private fun removeTabFromCollectionButton(title: String) =
+private fun jumpBackInSection() =
     onView(
         allOf(
-            withId(R.id.secondary_button),
-            hasSibling(withText(title))
+            withText(R.string.recent_tabs_header),
+            hasSibling(withText(R.string.recent_tabs_show_all))
         )
     )
 
-private fun tabsCounter() = onView(withId(R.id.tab_button))
+private fun recentBookmarksSection() =
+    onView(
+        allOf(
+            withText(R.string.recent_bookmarks_title),
+            hasSibling(withText(R.string.recently_saved_show_all))
+        )
+    )
 
 private fun startBrowsingButton(): UiObject {
     val startBrowsingButton = mDevice.findObject(UiSelector().resourceId("$packageName:id/finish_button"))

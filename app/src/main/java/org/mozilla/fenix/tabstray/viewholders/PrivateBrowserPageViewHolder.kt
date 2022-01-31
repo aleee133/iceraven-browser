@@ -5,32 +5,55 @@
 package org.mozilla.fenix.tabstray.viewholders
 
 import android.view.View
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import mozilla.components.browser.state.selector.privateTabs
+import mozilla.components.browser.state.store.BrowserStore
 import org.mozilla.fenix.R
 import org.mozilla.fenix.tabstray.TabsTrayInteractor
 import org.mozilla.fenix.tabstray.TabsTrayStore
-import org.mozilla.fenix.tabstray.browser.BrowserTrayList.BrowserTabType.PRIVATE
+import org.mozilla.fenix.tabstray.ext.defaultBrowserLayoutColumns
+import org.mozilla.fenix.tabstray.ext.observeFirstInsert
+import org.mozilla.fenix.tabstray.ext.selectedPrivateTab
 
 /**
  * View holder for the private tabs tray list.
  */
 class PrivateBrowserPageViewHolder(
     containerView: View,
-    store: TabsTrayStore,
-    interactor: TabsTrayInteractor,
-    currentTabIndex: Int
+    tabsTrayStore: TabsTrayStore,
+    private val browserStore: BrowserStore,
+    interactor: TabsTrayInteractor
 ) : AbstractBrowserPageViewHolder(
     containerView,
-    store,
+    tabsTrayStore,
     interactor,
-    currentTabIndex
 ) {
-
-    init {
-        trayList.browserTabType = PRIVATE
-    }
 
     override val emptyStringText: String
         get() = itemView.resources.getString(R.string.no_private_tabs_description)
+
+    override fun scrollToTab(
+        adapter: RecyclerView.Adapter<out RecyclerView.ViewHolder>,
+        layoutManager: RecyclerView.LayoutManager
+    ) {
+        adapter.observeFirstInsert {
+            val selectedTab = browserStore.state.selectedPrivateTab ?: return@observeFirstInsert
+            val scrollIndex = browserStore.state.privateTabs.indexOf(selectedTab)
+
+            layoutManager.scrollToPosition(scrollIndex)
+        }
+    }
+
+    override fun bind(
+        adapter: RecyclerView.Adapter<out RecyclerView.ViewHolder>
+    ) {
+        val context = containerView.context
+        val columns = context.defaultBrowserLayoutColumns
+        val manager = GridLayoutManager(context, columns)
+
+        super.bind(adapter, manager)
+    }
 
     companion object {
         const val LAYOUT_ID = R.layout.private_browser_tray_list

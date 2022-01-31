@@ -8,7 +8,6 @@ package org.mozilla.fenix.ui.robots
 
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions
 import androidx.test.espresso.action.ViewActions.swipeDown
 import androidx.test.espresso.action.ViewActions.swipeUp
 import androidx.test.espresso.assertion.ViewAssertions.matches
@@ -17,11 +16,11 @@ import androidx.test.espresso.matcher.RootMatchers
 import androidx.test.espresso.matcher.ViewMatchers
 import androidx.test.espresso.matcher.ViewMatchers.Visibility
 import androidx.test.espresso.matcher.ViewMatchers.hasDescendant
+import androidx.test.espresso.matcher.ViewMatchers.isChecked
 import androidx.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility
 import androidx.test.espresso.matcher.ViewMatchers.withId
-import androidx.test.espresso.matcher.ViewMatchers.withResourceName
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -29,28 +28,26 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.hamcrest.Matchers.allOf
+import org.hamcrest.Matchers.not
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.mozilla.fenix.R
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
+import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.helpers.click
 import org.mozilla.fenix.helpers.ext.waitNotNull
-import org.mozilla.fenix.share.ShareFragment
 
 /**
  * Implementation of Robot Pattern for the three dot (main) menu.
  */
 @Suppress("ForbiddenComment")
 class ThreeDotMenuMainRobot {
-    fun verifyTabSettingsButton() = assertTabSettingsButton()
-    fun verifyRecentlyClosedTabsButton() = assertRecentlyClosedTabsButton()
     fun verifyShareAllTabsButton() = assertShareAllTabsButton()
-    fun clickShareAllTabsButton() = shareAllTabsButton().click()
     fun verifySettingsButton() = assertSettingsButton()
+    fun verifyCustomizeHomeButton() = assertCustomizeHomeButton()
     fun verifyAddOnsButton() = assertAddOnsButton()
     fun verifyHistoryButton() = assertHistoryButton()
     fun verifyBookmarksButton() = assertBookmarksButton()
-    fun verifySyncedTabsButton() = assertSyncedTabsButton()
     fun verifySyncSignInButton() = assertSignInToSyncButton()
     fun verifyHelpButton() = assertHelpButton()
     fun verifyThreeDotMenuExists() = threeDotMenuRecyclerViewExists()
@@ -66,33 +63,11 @@ class ThreeDotMenuMainRobot {
         onView(withId(R.id.mozac_browser_menu_menuView)).perform(swipeUp())
     }
 
-    fun clickShareButton() {
-        var maxSwipes = 3
-        while (!shareButton().exists() && maxSwipes != 0) {
-            threeDotMenuRecyclerView().perform(swipeUp())
-            maxSwipes--
-        }
-        shareButton().click()
-        mDevice.waitNotNull(Until.findObject(By.text("ALL ACTIONS")), waitingTime)
-    }
-
     fun verifyShareTabButton() = assertShareTabButton()
     fun verifySaveCollection() = assertSaveCollectionButton()
     fun verifySelectTabs() = assertSelectTabsButton()
 
-    fun clickSaveCollectionButton() {
-        browserViewSaveCollectionButton().click()
-    }
-
-    fun clickAddNewCollection() {
-        addNewCollectionButton().click()
-    }
-
-    fun verifyCollectionNameTextField() = assertCollectionNameTextField()
     fun verifyFindInPageButton() = assertFindInPageButton()
-    fun verifyShareScrim() = assertShareScrim()
-    fun verifySendToDeviceTitle() = assertSendToDeviceTitle()
-    fun verifyShareALinkTitle() = assertShareALinkTitle()
     fun verifyWhatsNewButton() = assertWhatsNewButton()
     fun verifyAddToTopSitesButton() = assertAddToTopSitesButton()
     fun verifyAddToMobileHome() = assertAddToMobileHome()
@@ -100,8 +75,15 @@ class ThreeDotMenuMainRobot {
     fun verifyDownloadsButton() = assertDownloadsButton()
     fun verifyShareTabsOverlay() = assertShareTabsOverlay()
     fun verifySignInToSyncButton() = assertSignInToSyncButton()
-    fun verifyNewTabButton() = assertNewTabButton()
+    fun verifyNewTabButton() = assertNormalBrowsingNewTabButton()
     fun verifyReportSiteIssueButton() = assertReportSiteIssueButton()
+
+    fun verifyDesktopSiteModeEnabled(state: Boolean) {
+        expandMenu()
+        if (state) {
+            desktopSiteButton().check(matches(isChecked()))
+        } else desktopSiteButton().check(matches(not(isChecked())))
+    }
 
     fun verifyPageThreeDotMainMenuItems() {
         verifyNewTabButton()
@@ -137,11 +119,11 @@ class ThreeDotMenuMainRobot {
         private val mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 
         fun openSettings(interact: SettingsRobot.() -> Unit): SettingsRobot.Transition {
-            var maxSwipes = 3
-            while (!settingsButton().exists() && maxSwipes != 0) {
-                threeDotMenuRecyclerView().perform(swipeUp())
-                maxSwipes--
-            }
+            // We require one swipe to display the full size 3-dot menu. On smaller devices
+            // such as the Pixel 2, we require two swipes to display the "Settings" menu item
+            // at the bottom. On larger devices, the second swipe is a no-op.
+            threeDotMenuRecyclerView().perform(swipeUp())
+            threeDotMenuRecyclerView().perform(swipeUp())
             settingsButton().click()
 
             SettingsRobot().interact()
@@ -149,24 +131,15 @@ class ThreeDotMenuMainRobot {
         }
 
         fun openDownloadsManager(interact: DownloadRobot.() -> Unit): DownloadRobot.Transition {
-            onView(withId(R.id.mozac_browser_menu_recyclerView)).perform(swipeDown())
+            threeDotMenuRecyclerView().perform(swipeDown())
             downloadsButton().click()
 
             DownloadRobot().interact()
             return DownloadRobot.Transition()
         }
 
-        fun openSyncedTabs(interact: SyncedTabsRobot.() -> Unit): SyncedTabsRobot.Transition {
-            onView(withId(R.id.mozac_browser_menu_recyclerView)).perform(swipeDown())
-            mDevice.waitNotNull(Until.findObject(By.text("Synced tabs")), waitingTime)
-            syncedTabsButton().click()
-
-            SyncedTabsRobot().interact()
-            return SyncedTabsRobot.Transition()
-        }
-
         fun openSyncSignIn(interact: SyncSignInRobot.() -> Unit): SyncSignInRobot.Transition {
-            onView(withId(R.id.mozac_browser_menu_recyclerView)).perform(swipeDown())
+            threeDotMenuRecyclerView().perform(swipeDown())
             mDevice.waitNotNull(Until.findObject(By.text("Sign in to sync")), waitingTime)
             signInToSyncButton().click()
 
@@ -175,18 +148,18 @@ class ThreeDotMenuMainRobot {
         }
 
         fun openBookmarks(interact: BookmarksRobot.() -> Unit): BookmarksRobot.Transition {
-            onView(withId(R.id.mozac_browser_menu_recyclerView)).perform(swipeDown())
+            threeDotMenuRecyclerView().perform(swipeDown())
             mDevice.waitNotNull(Until.findObject(By.text("Bookmarks")), waitingTime)
 
             bookmarksButton().click()
-            assertTrue(mDevice.findObject(UiSelector().resourceId("org.mozilla.fenix.debug:id/bookmark_list")).waitForExists(waitingTime))
+            assertTrue(mDevice.findObject(UiSelector().resourceId("$packageName:id/bookmark_list")).waitForExists(waitingTime))
 
             BookmarksRobot().interact()
             return BookmarksRobot.Transition()
         }
 
         fun openHistory(interact: HistoryRobot.() -> Unit): HistoryRobot.Transition {
-            onView(withId(R.id.mozac_browser_menu_recyclerView)).perform(swipeDown())
+            threeDotMenuRecyclerView().perform(swipeDown())
             mDevice.waitNotNull(Until.findObject(By.text("History")), waitingTime)
             historyButton().click()
 
@@ -202,18 +175,32 @@ class ThreeDotMenuMainRobot {
             return BrowserRobot.Transition()
         }
 
-        fun sharePage(interact: LibrarySubMenusMultipleSelectionToolbarRobot.() -> Unit): LibrarySubMenusMultipleSelectionToolbarRobot.Transition {
-            shareButton().click()
-            LibrarySubMenusMultipleSelectionToolbarRobot().interact()
-            return LibrarySubMenusMultipleSelectionToolbarRobot.Transition()
-        }
-
         fun openHelp(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
             mDevice.waitNotNull(Until.findObject(By.text("Help")), waitingTime)
             helpButton().click()
 
             BrowserRobot().interact()
             return BrowserRobot.Transition()
+        }
+
+        fun openCustomizeHome(interact: SettingsSubMenuHomepageRobot.() -> Unit): SettingsSubMenuHomepageRobot.Transition {
+
+            mDevice.wait(
+                Until
+                    .findObject(
+                        By.textContains("$packageName:id/browser_menu_customize_home")
+                    ),
+                waitingTime
+            )
+
+            customizeHomeButton().click()
+
+            mDevice.findObject(
+                UiSelector().resourceId("$packageName:id/recycler_view")
+            ).waitForExists(waitingTime)
+
+            SettingsSubMenuHomepageRobot().interact()
+            return SettingsSubMenuHomepageRobot.Transition()
         }
 
         fun goForward(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
@@ -224,13 +211,18 @@ class ThreeDotMenuMainRobot {
         }
 
         fun goBack(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
-            // Close three dot
-            mDevice.pressBack()
-            // Nav back to previous page
-            mDevice.pressBack()
+            backButton().click()
 
             BrowserRobot().interact()
             return BrowserRobot.Transition()
+        }
+
+        fun clickShareButton(interact: ShareOverlayRobot.() -> Unit): ShareOverlayRobot.Transition {
+            shareButton().click()
+            mDevice.waitNotNull(Until.findObject(By.text("ALL ACTIONS")), waitingTime)
+
+            ShareOverlayRobot().interact()
+            return ShareOverlayRobot.Transition()
         }
 
         fun close(interact: HomeScreenRobot.() -> Unit): HomeScreenRobot.Transition {
@@ -257,14 +249,6 @@ class ThreeDotMenuMainRobot {
             return BrowserRobot.Transition()
         }
 
-        fun stopPageLoad(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
-            mDevice.waitNotNull(Until.findObject(By.desc("Stop")), waitingTime)
-            stopLoadingButton().click()
-
-            BrowserRobot().interact()
-            return BrowserRobot.Transition()
-        }
-
         fun closeAllTabs(interact: HomeScreenRobot.() -> Unit): HomeScreenRobot.Transition {
             closeAllTabsButton().click()
 
@@ -273,6 +257,8 @@ class ThreeDotMenuMainRobot {
         }
 
         fun openReportSiteIssue(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
+            threeDotMenuRecyclerView().perform(swipeUp())
+            threeDotMenuRecyclerView().perform(swipeUp())
             reportSiteIssueButton().click()
 
             BrowserRobot().interact()
@@ -280,7 +266,8 @@ class ThreeDotMenuMainRobot {
         }
 
         fun openFindInPage(interact: FindInPageRobot.() -> Unit): FindInPageRobot.Transition {
-            onView(withId(R.id.mozac_browser_menu_recyclerView)).perform(swipeDown())
+            threeDotMenuRecyclerView().perform(swipeUp())
+            threeDotMenuRecyclerView().perform(swipeUp())
             mDevice.waitNotNull(Until.findObject(By.text("Find in page")), waitingTime)
             findInPageButton().click()
 
@@ -296,32 +283,9 @@ class ThreeDotMenuMainRobot {
             return BrowserRobot.Transition()
         }
 
-        fun typeCollectionName(
-            name: String,
-            interact: BrowserRobot.() -> Unit
-        ): BrowserRobot.Transition {
-            mDevice.wait(
-                Until.findObject(By.res("org.mozilla.fenix.debug:id/name_collection_edittext")),
-                waitingTime
-            )
-
-            collectionNameTextField().perform(
-                ViewActions.replaceText(name),
-                ViewActions.pressImeActionButton()
-            )
-            // wait for the collection creation wrapper to be dismissed
-            mDevice.waitNotNull(Until.gone(By.res("org.mozilla.fenix.debug:id/createCollectionWrapper")))
-
-            BrowserRobot().interact()
-            return BrowserRobot.Transition()
-        }
-
         fun openReaderViewAppearance(interact: ReaderViewRobot.() -> Unit): ReaderViewRobot.Transition {
-            var maxSwipes = 3
-            while (!readerViewAppearanceToggle().exists() && maxSwipes != 0) {
-                threeDotMenuRecyclerView().perform(swipeUp())
-                maxSwipes--
-            }
+            threeDotMenuRecyclerView().perform(swipeUp())
+            threeDotMenuRecyclerView().perform(swipeUp())
             readerViewAppearanceToggle().click()
 
             ReaderViewRobot().interact()
@@ -344,35 +308,23 @@ class ThreeDotMenuMainRobot {
         }
 
         fun clickInstall(interact: AddToHomeScreenRobot.() -> Unit): AddToHomeScreenRobot.Transition {
-            var maxSwipes = 3
-            while (!installPWAButton().exists() && maxSwipes != 0) {
-                threeDotMenuRecyclerView().perform(swipeUp())
-                maxSwipes--
-            }
+            threeDotMenuRecyclerView().perform(swipeUp())
+            threeDotMenuRecyclerView().perform(swipeUp())
             installPWAButton().click()
 
             AddToHomeScreenRobot().interact()
             return AddToHomeScreenRobot.Transition()
         }
 
-        fun selectExistingCollection(title: String, interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
-            mDevice.waitNotNull(Until.findObject(By.text(title)), waitingTime)
-            onView(withText(title)).click()
-
-            BrowserRobot().interact()
-            return BrowserRobot.Transition()
-        }
-
-        fun openSaveToCollection(interact: ThreeDotMenuMainRobot.() -> Unit): ThreeDotMenuMainRobot.Transition {
+        fun openSaveToCollection(interact: CollectionRobot.() -> Unit): CollectionRobot.Transition {
             // Ensure the menu is expanded and fully scrolled to the bottom.
-            for (i in 0..3) {
-                threeDotMenuRecyclerView().perform(swipeUp())
-            }
+            threeDotMenuRecyclerView().perform(swipeUp())
+            threeDotMenuRecyclerView().perform(swipeUp())
 
             mDevice.waitNotNull(Until.findObject(By.text("Save to collection")), waitingTime)
             saveCollectionButton().click()
-            ThreeDotMenuMainRobot().interact()
-            return ThreeDotMenuMainRobot.Transition()
+            CollectionRobot().interact()
+            return CollectionRobot.Transition()
         }
 
         fun openAddonsManagerMenu(interact: SettingsSubMenuAddonsManagerRobot.() -> Unit): SettingsSubMenuAddonsManagerRobot.Transition {
@@ -385,11 +337,29 @@ class ThreeDotMenuMainRobot {
             return SettingsSubMenuAddonsManagerRobot.Transition()
         }
 
-        fun exitSaveCollection(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
-            exitSaveCollectionButton().click()
+        fun clickOpenInApp(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
+            threeDotMenuRecyclerView().perform(swipeUp())
+            threeDotMenuRecyclerView().perform(swipeUp())
+            openInAppButton().click()
 
             BrowserRobot().interact()
             return BrowserRobot.Transition()
+        }
+
+        fun switchDesktopSiteMode(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
+            threeDotMenuRecyclerView().perform(swipeUp())
+            threeDotMenuRecyclerView().perform(swipeUp())
+            desktopSiteButton().click()
+
+            BrowserRobot().interact()
+            return BrowserRobot.Transition()
+        }
+
+        fun clickShareAllTabsButton(interact: ShareOverlayRobot.() -> Unit): ShareOverlayRobot.Transition {
+            shareAllTabsButton().click()
+
+            ShareOverlayRobot().interact()
+            return ShareOverlayRobot.Transition()
         }
     }
 }
@@ -402,6 +372,17 @@ private fun threeDotMenuRecyclerViewExists() {
 
 private fun settingsButton() = mDevice.findObject(UiSelector().text("Settings"))
 private fun assertSettingsButton() = assertTrue(settingsButton().waitForExists(waitingTime))
+
+private fun customizeHomeButton() =
+    onView(
+        allOf(
+            withId(R.id.text),
+            withText(R.string.browser_menu_customize_home)
+        )
+    )
+
+private fun assertCustomizeHomeButton() =
+    customizeHomeButton().check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
 
 private fun addOnsButton() = onView(allOf(withText("Add-ons")))
 private fun assertAddOnsButton() {
@@ -417,10 +398,6 @@ private fun bookmarksButton() = onView(allOf(withText(R.string.library_bookmarks
 private fun assertBookmarksButton() = bookmarksButton()
     .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
 
-private fun syncedTabsButton() = onView(allOf(withText(R.string.library_synced_tabs)))
-private fun assertSyncedTabsButton() = syncedTabsButton()
-    .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
-
 private fun signInToSyncButton() = onView(withText("Sign in to sync"))
 private fun assertSignInToSyncButton() = signInToSyncButton().check(matches(isDisplayed()))
 
@@ -430,6 +407,8 @@ private fun assertHelpButton() = helpButton()
 
 private fun forwardButton() = mDevice.findObject(UiSelector().description("Forward"))
 private fun assertForwardButton() = assertTrue(forwardButton().waitForExists(waitingTime))
+
+private fun backButton() = mDevice.findObject(UiSelector().description("Back"))
 
 private fun addBookmarkButton() = onView(allOf(withId(R.id.checkbox), withText("Add")))
 private fun assertAddBookmarkButton() {
@@ -457,13 +436,6 @@ private fun assertShareTabButton() = shareTabButton()
 private fun shareButton() = mDevice.findObject(UiSelector().description("Share"))
 private fun assertShareButton() = assertTrue(shareButton().waitForExists(waitingTime))
 
-private fun browserViewSaveCollectionButton() = onView(
-    allOf(
-        withText("Save to collection"),
-        withEffectiveVisibility(Visibility.VISIBLE)
-    )
-)
-
 private fun saveCollectionButton() = onView(allOf(withText("Save to collection"))).inRoot(RootMatchers.isPlatformPopup())
 private fun assertSaveCollectionButton() = saveCollectionButton()
     .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
@@ -472,38 +444,12 @@ private fun selectTabsButton() = onView(allOf(withText("Select tabs"))).inRoot(R
 private fun assertSelectTabsButton() = selectTabsButton()
     .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
 
-private fun addNewCollectionButton() = onView(allOf(withText("Add new collection")))
-private fun assertaddNewCollectionButton() = addNewCollectionButton()
-    .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
-
-private fun collectionNameTextField() =
-    onView(allOf(withResourceName("name_collection_edittext")))
-
-private fun assertCollectionNameTextField() = collectionNameTextField()
-    .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
-
 private fun reportSiteIssueButton() = onView(withText("Report Site Issue…"))
 private fun assertReportSiteIssueButton() = reportSiteIssueButton().check(matches(isDisplayed()))
 
 private fun findInPageButton() = onView(allOf(withText("Find in page")))
 
 private fun assertFindInPageButton() = findInPageButton()
-
-private fun shareScrim() = onView(withResourceName("closeSharingScrim"))
-
-private fun assertShareScrim() =
-    shareScrim().check(matches(ViewMatchers.withAlpha(ShareFragment.SHOW_PAGE_ALPHA)))
-
-private fun SendToDeviceTitle() =
-    onView(allOf(withText("SEND TO DEVICE"), withResourceName("accountHeaderText")))
-
-private fun assertSendToDeviceTitle() = SendToDeviceTitle()
-    .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
-
-private fun shareALinkTitle() =
-    onView(allOf(withText("ALL ACTIONS"), withResourceName("apps_link_header")))
-
-private fun assertShareALinkTitle() = shareALinkTitle()
 
 private fun whatsNewButton() = onView(
     allOf(
@@ -563,12 +509,19 @@ private fun assertAddToMobileHome() {
 
 private fun installPWAButton() = mDevice.findObject(UiSelector().text("Install"))
 
-private fun desktopSiteButton() =
-    onView(allOf(withText(R.string.browser_menu_desktop_site)))
+private fun desktopSiteButton() = onView(withId(R.id.switch_widget))
 private fun assertDesktopSite() {
-    onView(withId(R.id.mozac_browser_menu_menuView)).perform(swipeUp())
+    threeDotMenuRecyclerView().perform(swipeUp())
     desktopSiteButton().check(matches(isDisplayed()))
 }
+
+private fun openInAppButton() =
+    onView(
+        allOf(
+            withText("Open in app"),
+            withEffectiveVisibility(Visibility.VISIBLE)
+        )
+    )
 
 private fun downloadsButton() = onView(withText(R.string.library_downloads))
 private fun assertDownloadsButton() {
@@ -581,33 +534,14 @@ private fun clickAddonsManagerButton() {
     addOnsButton().check(matches(isCompletelyDisplayed())).click()
 }
 
-private fun exitSaveCollectionButton() = onView(withId(R.id.back_button)).check(matches(isDisplayed()))
-
-private fun tabSettingsButton() =
-    onView(allOf(withText("Tab settings"))).inRoot(RootMatchers.isPlatformPopup())
-
-private fun assertTabSettingsButton() {
-    tabSettingsButton()
-        .check(
-            matches(isDisplayed()))
-}
-
-private fun recentlyClosedTabsButton() =
-    onView(allOf(withText("Recently closed tabs"))).inRoot(RootMatchers.isPlatformPopup())
-
-private fun assertRecentlyClosedTabsButton() {
-    recentlyClosedTabsButton()
-        .check(
-            matches(isDisplayed()))
-}
-
 private fun shareAllTabsButton() =
     onView(allOf(withText("Share all tabs"))).inRoot(RootMatchers.isPlatformPopup())
 
 private fun assertShareAllTabsButton() {
     shareAllTabsButton()
         .check(
-            matches(isDisplayed()))
+            matches(isDisplayed())
+        )
 }
 
-private fun assertNewTabButton() = onView(withText("New tab")).check(matches(isDisplayed()))
+private fun assertNormalBrowsingNewTabButton() = onView(withText("New tab")).check(matches(isDisplayed()))

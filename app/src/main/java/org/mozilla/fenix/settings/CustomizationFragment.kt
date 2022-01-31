@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import org.mozilla.fenix.FeatureFlags
@@ -26,7 +25,7 @@ import org.mozilla.fenix.utils.view.addToRadioGroup
  * Lets the user customize the UI.
  */
 
-@Suppress("LargeClass", "TooManyFunctions")
+@Suppress("TooManyFunctions")
 class CustomizationFragment : PreferenceFragmentCompat() {
     private lateinit var radioLightTheme: RadioButtonPreference
     private lateinit var radioDarkTheme: RadioButtonPreference
@@ -51,16 +50,7 @@ class CustomizationFragment : PreferenceFragmentCompat() {
         bindAutoBatteryTheme()
         setupRadioGroups()
         setupToolbarCategory()
-        setupHomeCategory()
         setupGesturesCategory()
-        setupAddonsCustomizationCategory()
-        setupSystemBehaviorCategory()
-
-        requirePreference<SwitchPreference>(R.string.pref_key_strip_url).apply {
-            isChecked = context.settings().shouldStripUrl
-
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
     }
 
     private fun setupRadioGroups() {
@@ -125,16 +115,20 @@ class CustomizationFragment : PreferenceFragmentCompat() {
     private fun setupToolbarCategory() {
         val topPreference = requirePreference<RadioButtonPreference>(R.string.pref_key_toolbar_top)
         topPreference.onClickListener {
-            requireContext().components.analytics.metrics.track(Event.ToolbarPositionChanged(
-                Event.ToolbarPositionChanged.Position.TOP
-            ))
+            requireContext().components.analytics.metrics.track(
+                Event.ToolbarPositionChanged(
+                    Event.ToolbarPositionChanged.Position.TOP
+                )
+            )
         }
 
         val bottomPreference = requirePreference<RadioButtonPreference>(R.string.pref_key_toolbar_bottom)
         bottomPreference.onClickListener {
-            requireContext().components.analytics.metrics.track(Event.ToolbarPositionChanged(
-                Event.ToolbarPositionChanged.Position.BOTTOM
-            ))
+            requireContext().components.analytics.metrics.track(
+                Event.ToolbarPositionChanged(
+                    Event.ToolbarPositionChanged.Position.BOTTOM
+                )
+            )
         }
 
         val toolbarPosition = requireContext().settings().toolbarPosition
@@ -142,13 +136,6 @@ class CustomizationFragment : PreferenceFragmentCompat() {
         bottomPreference.setCheckedWithoutClickListener(toolbarPosition == ToolbarPosition.BOTTOM)
 
         addToRadioGroup(topPreference, bottomPreference)
-    }
-
-    private fun setupHomeCategory() {
-        requirePreference<SwitchPreference>(R.string.pref_key_enable_top_frecent_sites).apply {
-            isChecked = context.settings().showTopFrecentSites
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
     }
 
     private fun setupGesturesCategory() {
@@ -163,25 +150,6 @@ class CustomizationFragment : PreferenceFragmentCompat() {
         }
         requirePreference<SwitchPreference>(R.string.pref_key_swipe_toolbar_switch_tabs).apply {
             isChecked = context.settings().isSwipeToolbarToSwitchTabsEnabled
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-    }
-
-    private fun setupAddonsCustomizationCategory() {
-        requirePreference<EditTextPreference>(R.string.pref_key_addons_custom_account).apply {
-            text = context.settings().customAddonsAccount
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
-        requirePreference<EditTextPreference>(R.string.pref_key_addons_custom_collection).apply {
-            text = context.settings().customAddonsCollection
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-    }
-
-    private fun setupSystemBehaviorCategory() {
-        requirePreference<SwitchPreference>(R.string.pref_key_relinquish_memory_under_pressure).apply {
-            isChecked = context.settings().shouldRelinquishMemoryUnderPressure
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
     }

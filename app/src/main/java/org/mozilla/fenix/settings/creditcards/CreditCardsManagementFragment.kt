@@ -10,14 +10,13 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import kotlinx.android.synthetic.main.fragment_saved_cards.view.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import mozilla.components.lib.state.ext.consumeFrom
 import org.mozilla.fenix.R
 import org.mozilla.fenix.SecureFragment
 import org.mozilla.fenix.components.StoreProvider
+import org.mozilla.fenix.databinding.ComponentCreditCardsBinding
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.redirectToReAuth
 import org.mozilla.fenix.ext.showToolbar
@@ -40,7 +39,7 @@ class CreditCardsManagementFragment : SecureFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_saved_cards, container, false)
+        val view = inflater.inflate(CreditCardsManagementView.LAYOUT_ID, container, false)
 
         creditCardsStore = StoreProvider.get(this) {
             CreditCardsFragmentStore(CreditCardsListState(creditCards = emptyList()))
@@ -49,17 +48,18 @@ class CreditCardsManagementFragment : SecureFragment() {
         interactor = DefaultCreditCardsManagementInteractor(
             controller = DefaultCreditCardsManagementController(
                 navController = findNavController()
-            )
+            ),
+            requireContext().components.analytics.metrics
         )
+        val binding = ComponentCreditCardsBinding.bind(view)
 
-        creditCardsView = CreditCardsManagementView(view.saved_cards_layout, interactor)
+        creditCardsView = CreditCardsManagementView(binding, interactor)
 
         loadCreditCards()
 
         return view
     }
 
-    @ExperimentalCoroutinesApi
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         consumeFrom(creditCardsStore) { state ->
             if (!state.isLoading && state.creditCards.isEmpty()) {
